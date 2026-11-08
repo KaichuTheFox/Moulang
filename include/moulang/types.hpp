@@ -51,8 +51,8 @@ inline int integerBits(Type type) {
     switch (type) {
     case Type::byte: return 8;
     case Type::shortInt: return 16;
-    case Type::integer:
-    case Type::longInt: return 32;
+    case Type::integer: return 32;
+    case Type::longInt: return 64;
     default: return 0;
     }
 }
@@ -68,7 +68,7 @@ inline bool numericType(Type type) {
 inline bool losslessNumeric(Type target, Type source) {
     if (target == source) return numericType(target);
     const int sourceBits = integerBits(source);
-    if (target == Type::float64) return sourceBits != 0 || source == Type::float32;
+    if (target == Type::float64) return (sourceBits != 0 && sourceBits <= 53) || source == Type::float32;
     if (target == Type::float32) return sourceBits != 0 && sourceBits <= 24;
     return sourceBits != 0 && target != Type::byte && integerBits(target) >= sourceBits;
 }

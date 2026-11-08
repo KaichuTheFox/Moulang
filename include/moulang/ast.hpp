@@ -18,7 +18,7 @@ struct Expression {
     std::unique_ptr<Expression> left;
     std::unique_ptr<Expression> right;
     Type type = Type::inferred;
-    std::int32_t integer = 0;
+    std::int64_t integer = 0;
     std::vector<std::unique_ptr<Expression>> arguments{};
     double real = 0;
     Type operandType = Type::inferred;

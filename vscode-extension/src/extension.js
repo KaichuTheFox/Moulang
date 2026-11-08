@@ -3,6 +3,14 @@
 const path = require('node:path');
 const vscode = require('vscode');
 const { registerLiveDiagnostics } = require('./diagnostics');
+const { resolveCompiler } = require('./compiler');
+
+async function offerCompilerSettings(message) {
+    const action = await vscode.window.showErrorMessage(message, 'Open Settings');
+    if (action === 'Open Settings') {
+        await vscode.commands.executeCommand('workbench.action.openSettings', 'moulang.executablePath');
+    }
+}
 
 function activate(context) {
     registerLiveDiagnostics(context);
@@ -43,13 +51,22 @@ function activate(context) {
                 return;
             }
 
-            const executable = vscode.workspace.getConfiguration('moulang', document.uri).get('executablePath');
+            const configured = vscode.workspace.getConfiguration('moulang', document.uri).get('executablePath');
+            const executable = await resolveCompiler(configured, path.dirname(document.uri.fsPath));
+            if (!executable) {
+                await offerCompilerSettings('Moulang compiler not found. Set moulang.executablePath to the full path to moulang.exe.');
+                return;
+            }
             const execution = new vscode.ProcessExecution(executable, ['run', document.uri.fsPath], {
                 cwd: path.dirname(document.uri.fsPath)
             });
             const task = new vscode.Task({ type: 'moulang' }, folder, 'Run current file', 'Moulang', execution, ['$moulang']);
             task.presentationOptions = { reveal: vscode.TaskRevealKind.Always };
-            return vscode.tasks.executeTask(task);
+            try {
+                return await vscode.tasks.executeTask(task);
+            } catch (error) {
+                await offerCompilerSettings('Could not start the Moulang compiler. Check its path and permissions.');
+            }
         })
     );
 }

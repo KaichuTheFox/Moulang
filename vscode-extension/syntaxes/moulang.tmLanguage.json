@@ -3,7 +3,13 @@
   "scopeName": "source.moulang",
   "patterns": [
     { "name": "comment.line.double-slash.moulang", "match": "//.*$" },
-    { "name": "string.quoted.double.moulang", "begin": "\"", "end": "\"|$" },
+    {
+      "name": "string.quoted.double.moulang", "begin": "\"", "end": "\"|$",
+      "patterns": [
+        { "name": "constant.character.escape.moulang", "match": "\\\\(?:[nrt\\\\\"0]|x[0-9A-Fa-f]{2}|u\\{[0-9A-Fa-f]{1,6}\\})" },
+        { "name": "invalid.illegal.escape.moulang", "match": "\\\\(?:.|$)" }
+      ]
+    },
     { "name": "storage.type.moulang", "match": "\\b(void|char|short|int|long|float|double|bool|string|var|def)\\b" },
     { "name": "storage.type.struct.moulang", "match": "\\b(struct|class)\\b" },
     { "name": "storage.modifier.moulang", "match": "\\b(public|private)\\b" },

@@ -53,7 +53,7 @@ std::unique_ptr<Expression> integerLiteral(Token token, bool negative = false) {
     const auto parsed = std::from_chars(token.text.data(), token.text.data() + token.text.size(),
         expression->integer);
     if (parsed.ec != std::errc{}) {
-        throw Diagnostic(token.location, "ML3003", "Integer literal is outside the 32-bit range.");
+        throw Diagnostic(token.location, "ML3003", "Integer literal is outside the signed 64-bit range.");
     }
     return expression;
 }

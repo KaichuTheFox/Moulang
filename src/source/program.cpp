@@ -64,6 +64,9 @@ private:
             }
         }
         for (const auto& import : unit.imports) {
+            if (import.path.find('\0') != std::string::npos) {
+                throw Diagnostic(import.location, "ML3028", "Import path must not contain NUL.");
+            }
             const fs::path relative(std::u8string(import.path.begin(), import.path.end()));
             if (relative.has_root_path() || relative.extension() != L".m") {
                 throw Diagnostic(import.location, "ML3028", "Import requires a relative .m path.");

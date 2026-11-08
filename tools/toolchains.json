@@ -1,0 +1,19 @@
+{
+  "llvm": {
+    "version": "22.1.8",
+    "archive": "clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz",
+    "directory": "clang+llvm-22.1.8-x86_64-pc-windows-msvc",
+    "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang%2Bllvm-22.1.8-x86_64-pc-windows-msvc.tar.xz",
+    "sha256": "d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234",
+    "requiredFiles": ["bin/ld.lld.exe", "bin/lld-link.exe", "bin/llvm-lib.exe", "lib/cmake/llvm/LLVMConfig.cmake"]
+  },
+  "mingw": {
+    "version": "20260616",
+    "llvmVersion": "22.1.8",
+    "archive": "llvm-mingw-20260616-ucrt-x86_64.zip",
+    "directory": "llvm-mingw-20260616-ucrt-x86_64",
+    "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20260616/llvm-mingw-20260616-ucrt-x86_64.zip",
+    "sha256": "b9b68a4d276e16fa25802aaba458e4638f64b3884c290aaccdc2d87083b6ca35",
+    "requiredFiles": ["bin/clang++.exe", "x86_64-w64-mingw32/lib/crt2.o", "x86_64-w64-mingw32/lib/libc++.a", "lib/clang/22/lib/windows/libclang_rt.builtins-x86_64.a"]
+  }
+}

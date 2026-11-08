@@ -1,4 +1,6 @@
 #include <Windows.h>
+#include <cstdint>
+#include <limits>
 
 extern "C" void moulang_main();
 
@@ -140,6 +142,36 @@ extern "C" int moulang_divide(int left, int right) {
 extern "C" int moulang_shift_count(int count, int width) {
     if (count < 0 || count >= width) runtimeError("Moulang runtime: invalid bit shift count.\r\n");
     return count;
+}
+
+extern "C" int moulang_shift_count64(std::int64_t count, int width) {
+    if (count < 0 || count >= width) runtimeError("Moulang runtime: invalid bit shift count.\r\n");
+    return static_cast<int>(count);
+}
+
+extern "C" int moulang_checked_int(std::int64_t value) {
+    if (value < (std::numeric_limits<int>::min)() || value > (std::numeric_limits<int>::max)())
+        runtimeError("Moulang runtime: long value is outside the int range.\r\n");
+    return static_cast<int>(value);
+}
+
+extern "C" std::int64_t moulang_divide_long(std::int64_t left, std::int64_t right) {
+    if (right == 0) runtimeError("Moulang runtime: division by zero.\r\n");
+    if (left == (std::numeric_limits<std::int64_t>::min)() && right == -1) return left;
+    return left / right;
+}
+
+extern "C" void moulang_print_long(std::int64_t value) {
+    char buffer[20];
+    char* digit = buffer + sizeof(buffer);
+    auto magnitude = static_cast<std::uint64_t>(value);
+    if (value < 0) magnitude = 0 - magnitude;
+    do {
+        *--digit = static_cast<char>('0' + magnitude % 10);
+        magnitude /= 10;
+    } while (magnitude);
+    if (value < 0) *--digit = '-';
+    moulang_print(digit, static_cast<int>(buffer + sizeof(buffer) - digit));
 }
 
 extern "C" int moulang_string_equal(const char* left, int leftSize, const char* right, int rightSize) {

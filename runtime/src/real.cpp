@@ -42,7 +42,9 @@ extern "C" float moulang_narrow_real(double value) {
     return static_cast<float>(value);
 }
 
-extern "C" std::uint32_t moulang_real_to_int(double value) {
+template<class UInt>
+UInt realToInteger(double value) {
+    constexpr int width = sizeof(UInt) * 8;
     constexpr int fractionBits = 52;
     constexpr std::uint64_t leadingBit = std::uint64_t{1} << fractionBits;
     const auto raw = std::bit_cast<std::uint64_t>(value);
@@ -51,19 +53,22 @@ extern "C" std::uint32_t moulang_real_to_int(double value) {
         numericError("Moulang runtime: cannot convert a non-finite real to an integer.\r\n");
     }
     const int exponent = biasedExponent - 1023;
-    if (exponent < -1 || exponent >= fractionBits + 32) return 0;
+    if (exponent < -1 || exponent >= fractionBits + width) return 0;
 
     const auto significand = leadingBit | (raw & (leadingBit - 1));
-    std::uint32_t lowBits;
+    UInt lowBits;
     if (exponent >= fractionBits) {
-        lowBits = static_cast<std::uint32_t>(significand) << (exponent - fractionBits);
+        lowBits = static_cast<UInt>(significand) << (exponent - fractionBits);
     } else {
         const int shift = fractionBits - exponent;
         const auto whole = significand >> shift;
         const auto halfway = std::uint64_t{1} << (shift - 1);
         const auto fraction = significand & ((halfway << 1) - 1);
         const bool roundUp = fraction > halfway || (fraction == halfway && (whole & 1) != 0);
-        lowBits = static_cast<std::uint32_t>(whole + roundUp);
+        lowBits = static_cast<UInt>(whole + roundUp);
     }
     return (raw >> 63) ? 0u - lowBits : lowBits;
 }
+
+extern "C" std::uint32_t moulang_real_to_int(double value) { return realToInteger<std::uint32_t>(value); }
+extern "C" std::uint64_t moulang_real_to_long(double value) { return realToInteger<std::uint64_t>(value); }

@@ -52,6 +52,15 @@ fs::path compilerDirectory() {
     }
 }
 
+fs::path bundledFile(const fs::path& directory, const fs::path& relative) {
+    const auto file = directory / relative;
+    if (!fs::is_regular_file(file)) {
+        throw std::runtime_error("Missing bundled toolchain file: " + relative.generic_string() +
+            ". Rebuild or reinstall the complete Moulang toolchain.");
+    }
+    return file;
+}
+
 // Quote one argument using the Windows C runtime argument parsing rules.
 std::wstring quote(const std::wstring& argument) {
     std::wstring quoted = L"\"";
@@ -95,14 +104,26 @@ DWORD launch(const fs::path& executable, const std::vector<std::wstring>& args, 
 }
 
 fs::path compileAndLink(const Program& program, const fs::path& stage, Optimization optimization) {
+    const auto directory = compilerDirectory();
+    const auto linker = bundledFile(directory, linkerPath);
+    const auto libraryDirectory = directory / L"toolchain/lib";
+    const auto startup = bundledFile(libraryDirectory, L"crt2.o");
+    const auto begin = bundledFile(libraryDirectory, L"crtbegin.o");
+    const auto end = bundledFile(libraryDirectory, L"crtend.o");
+    const auto runtime = bundledFile(directory, L"moulang_runtime.lib");
     emitObject(program, stage / L"program.obj", optimization);
     // Local ASCII arguments also work when the project directory has a Unicode name.
-    fs::copy_file(compilerDirectory() / L"moulang_runtime.lib", stage / L"moulang_runtime.lib");
-    const DWORD status = launch(linkerPath, {
-        L"/NOLOGO", L"/MACHINE:X64", L"/SUBSYSTEM:CONSOLE", L"/ENTRY:moulang_entry", L"/NODEFAULTLIB",
-        L"/OUT:program.exe", L"program.obj", L"moulang_runtime.lib", kernel32Path,
-        staticCrtPath, staticCppPath, staticVcruntimePath
-    }, stage);
+    fs::copy_file(runtime, stage / L"moulang_runtime.lib");
+    std::vector<std::wstring> arguments = {
+        L"-m", L"i386pep", L"-Bstatic", L"--subsystem", L"console",
+        L"--entry", L"mainCRTStartup", L"--gc-sections", L"-o", L"program.exe",
+        startup.native(), begin.native(), L"program.obj", L"moulang_runtime.lib", L"--start-group"
+    };
+    for (const auto* library : staticLibraries) {
+        arguments.push_back(bundledFile(libraryDirectory, library).native());
+    }
+    arguments.insert(arguments.end(), {L"--end-group", end.native()});
+    const DWORD status = launch(linker, arguments, stage);
     if (status != 0) {
         throw std::runtime_error("Native linker exited with code " + std::to_string(status) + ".");
     }

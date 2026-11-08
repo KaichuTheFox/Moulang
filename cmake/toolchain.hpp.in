@@ -2,9 +2,10 @@
 
 namespace moulang {
 inline constexpr auto version = "@PROJECT_VERSION@";
-inline constexpr auto linkerPath = LR"(@MOULANG_LINKER@)";
-inline constexpr auto kernel32Path = LR"(@MOULANG_KERNEL32@)";
-inline constexpr auto staticCrtPath = LR"(@MOULANG_LIBCMT@)";
-inline constexpr auto staticCppPath = LR"(@MOULANG_LIBCPMT@)";
-inline constexpr auto staticVcruntimePath = LR"(@MOULANG_LIBVCRUNTIME@)";
+inline constexpr auto linkerPath = L"toolchain/bin/ld.lld.exe";
+inline constexpr const wchar_t* staticLibraries[] = {
+    L"libc++.a", L"libmingw32.a", L"libunwind.a", L"libmoldname.a",
+    L"libmingwex.a", L"libmsvcrt.a", L"libadvapi32.a", L"libshell32.a",
+    L"libuser32.a", L"libkernel32.a", L"libclang_rt.builtins-x86_64.a"
+};
 }

@@ -1,6 +1,6 @@
 # Moulang user guide
 
-Moulang is a statically typed native language developed by HAZOS. It currently targets Windows x64. Follow the [build instructions](../README.md#build-and-install-the-compiler) to build and install the compiler with Visual Studio, the Windows SDK, CMake, Ninja, and LLVM.
+Moulang is a statically typed native language developed by HAZOS. It currently targets Windows 10/11 x64. Follow the [source build instructions](../README.md#build-from-source) with Visual Studio, the Windows SDK, CMake, Ninja, and the pinned toolchains, or use a verified release package.
 
 ## Run a program
 

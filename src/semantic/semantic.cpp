@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <optional>
+#include <limits>
 
 namespace moulang {
 namespace {
@@ -135,7 +136,9 @@ private:
 Type Analyzer::checkExpression(Expression& expression, const Variables& variables, bool allowVoid,
     bool keepNullable) {
     switch (expression.kind) {
-    case ExpressionKind::integer: return expression.type = Type::integer;
+    case ExpressionKind::integer:
+        return expression.type = expression.integer >= (std::numeric_limits<std::int32_t>::min)() &&
+            expression.integer <= (std::numeric_limits<std::int32_t>::max)() ? Type::integer : Type::longInt;
     case ExpressionKind::real: return expression.type = Type::float64;
     case ExpressionKind::boolean: return expression.type = Type::boolean;
     case ExpressionKind::string: return expression.type = Type::string;
@@ -303,7 +306,51 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
         if (!found || expression.text == "main") {
             throw Diagnostic(expression.location, "ML3010", "Unknown callable function.");
         }
-        auto& function = *found;
+        std::vector<Function*> candidates;
+        for (auto& candidate : program_->functions) {
+            if (candidate.owner == Type::none && candidate.name == expression.text &&
+                candidate.location.file == found->location.file &&
+                (candidate.location.file == file || candidate.exported)) candidates.push_back(&candidate);
+        }
+        Function* selected = found;
+        if (candidates.size() > 1) {
+            std::vector<Type> actual;
+            for (auto& argument : expression.arguments) actual.push_back(checkExpression(*argument, variables));
+            const auto rank = [&](Type target, Type source) {
+                if (target == source) return 0;
+                if (!canAssign(target, source)) return 10000;
+                if (integerBits(target) && integerBits(source)) return 100 + integerBits(target);
+                if (realType(target) && realType(source)) return 200 + (target == Type::float32 ? 32 : 64);
+                if (realType(target) && integerBits(source)) return 300 + (target == Type::float32 ? 32 : 64);
+                return 400;
+            };
+            std::vector<std::pair<Function*, std::vector<int>>> viable;
+            for (auto* candidate : candidates) {
+                if (candidate->parameters.size() != actual.size()) continue;
+                std::vector<int> ranks;
+                for (std::size_t i = 0; i < actual.size(); ++i)
+                    ranks.push_back(rank(candidate->parameters[i].type, actual[i]));
+                if (std::ranges::none_of(ranks, [](int value) { return value == 10000; }))
+                    viable.emplace_back(candidate, std::move(ranks));
+            }
+            selected = nullptr;
+            for (const auto& candidate : viable) {
+                bool best = true;
+                for (const auto& other : viable) {
+                    if (candidate.first == other.first) continue;
+                    bool strictlyBetter = false;
+                    for (std::size_t i = 0; i < actual.size(); ++i) {
+                        if (candidate.second[i] > other.second[i]) best = false;
+                        if (candidate.second[i] < other.second[i]) strictlyBetter = true;
+                    }
+                    if (!strictlyBetter) best = false;
+                }
+                if (best) selected = candidate.first;
+            }
+            if (!selected) throw Diagnostic(expression.location, "ML3011", viable.empty()
+                ? "No overload accepts these argument types." : "Ambiguous function overload; use explicit conversions.");
+        }
+        auto& function = *selected;
         checkArguments(expression, variables, function, 0);
         if (function.result == Type::inferred) checkFunction(function);
         if (function.result == Type::none && !allowVoid) {
@@ -336,6 +383,8 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
             }
             expression.borrowOwner = expression.right->borrowOwner;
         }
+        if ((yes == Type::longInt && realType(no)) || (no == Type::longInt && realType(yes)))
+            throw Diagnostic(expression.location, "ML3026", "Mixed long and real values require an explicit conversion.");
         if (numericType(yes) && numericType(no)) return expression.type = commonNumeric(yes, no);
         if (yes != Type::nullValue && canAssign(yes, no)) return expression.type = yes;
         if (no != Type::nullValue && canAssign(no, yes)) return expression.type = no;
@@ -372,6 +421,8 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
             return expression.type = expression.operandType;
         }
         if (numericType(left) && numericType(right) && !logical) {
+            if ((left == Type::longInt && realType(right)) || (right == Type::longInt && realType(left)))
+                throw Diagnostic(expression.location, "ML3005", "Mixed long and real values require an explicit conversion.");
             expression.operandType = commonNumeric(left, right);
             const bool arithmetic = op == "+" || op == "-" || op == "*" || op == "/";
             return expression.type = arithmetic ? expression.operandType : Type::boolean;
@@ -453,7 +504,7 @@ bool Analyzer::canAssign(Type destination, Type source) const {
 bool Analyzer::canInitializeField(Type destination, const Expression& value) const {
     if (canAssign(destination, value.type)) return true;
     // A positional float field can give an exact integer literal its context.
-    return destination == Type::float32 && value.kind == ExpressionKind::integer &&
+    return destination == Type::float32 && value.type == Type::integer && value.kind == ExpressionKind::integer &&
         static_cast<double>(static_cast<float>(value.integer)) == static_cast<double>(value.integer);
 }
 
@@ -793,13 +844,29 @@ void Analyzer::check(Program& program, bool requireMain) {
             continue;
         }
         const auto file = function.location.file;
-        if (!localFunctions_[file].emplace(function.name, &function).second ||
-            (function.exported && !exportedFunctions_.emplace(function.name, &function).second)) {
+        const auto previous = localFunctions_[file].find(function.name);
+        bool duplicate = false;
+        if (previous != localFunctions_[file].end()) {
+            for (const auto& prior : program.functions) {
+                if (&prior == &function) break;
+                if (prior.owner != Type::none || prior.location.file != file || prior.name != function.name ||
+                    prior.parameters.size() != function.parameters.size()) continue;
+                bool same = true;
+                for (std::size_t i = 0; i < prior.parameters.size(); ++i)
+                    same = same && prior.parameters[i].type == function.parameters[i].type;
+                duplicate = duplicate || same;
+            }
+        }
+        const auto exported = exportedFunctions_.find(function.name);
+        if (duplicate || (previous != localFunctions_[file].end() && function.name == "main") ||
+            (function.exported && exported != exportedFunctions_.end() && exported->second->location.file != file)) {
             if (function.name == "main") {
                 throw Diagnostic(function.location, "ML3002", "Duplicate program entry point 'main'.");
             }
             throw Diagnostic(function.location, "ML3017", "Duplicate function name.");
         }
+        localFunctions_[file].emplace(function.name, &function);
+        if (function.exported) exportedFunctions_.emplace(function.name, &function);
         if (function.name == "main") {
             if (function.result != Type::none || !function.parameters.empty()) {
                 throw Diagnostic(function.location, "ML3017", "The entry point must be 'main()' or 'void main()'.");

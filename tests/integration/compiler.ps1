@@ -235,7 +235,7 @@ main() {
 double exact(double value) { return value }
 '@
     [IO.File]::WriteAllText((Join-Path $workspace 'numbers.m'), $numbers, $utf8)
-    $numericOutput = @('255', '4', '-1', '32767', '-2147483648', '-1', '1', '-1', '2', '4', '-2', '-4',
+    $numericOutput = @('255', '4', '-1', '32767', '2147483648', '4294967295', '1', '-1', '2', '4', '-2', '-4',
         '0', '1', '2', '0', '16385', '0.1', '16777216', '16777217.25', 'true', 'true', 'true', '9.5', '7',
         'true') -join "`n"
     Check (Invoke-Native $Compiler @('run', 'numbers.m')) 0 $numericOutput
@@ -573,7 +573,7 @@ void main(
     Check-Error 'separator.m' 'main() { print("a") print("b") }' 'ML2001'
     Check-Error 'empty.m' '// no entry point' 'ML3001'
     Check-Error 'duplicate.m' "main() {}`nvoid main() {}" 'duplicate\.m:2:6: error ML3002'
-    Check-Error 'overflow.m' 'main() { print(2147483648) }' 'ML3003'
+    Check-Error 'overflow.m' 'main() { print(9223372036854775808) }' 'ML3003'
     Check-Error 'missing-variable.m' 'main() { print(missing) }' 'ML3004'
     Check-Error 'invalid-operation.m' 'main() { print(true + 1) }' 'ML3005'
     Check-Error 'duplicate-variable.m' "main() { int a = 1`nvar a = 2 }" 'ML3006'

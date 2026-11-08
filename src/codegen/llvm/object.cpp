@@ -16,7 +16,7 @@ namespace {
 template<class Ref, auto Dispose>
 using LLVMOwner = std::unique_ptr<std::remove_pointer_t<Ref>, decltype([](Ref ref) { Dispose(ref); })>;
 
-constexpr char triple[] = "x86_64-pc-windows-msvc";
+constexpr char triple[] = "x86_64-w64-windows-gnu";
 
 class Emitter {
 public:
@@ -57,7 +57,7 @@ public:
             const bool entry = function.name == "main";
             const auto name = entry ? "moulang_main" : "moulang.fn." + std::to_string(function.location.file) +
                 "." + std::to_string(static_cast<std::uint32_t>(function.owner)) +
-                (function.constructor ? ".ctor." : ".") + function.name;
+                (function.constructor ? ".ctor." : ".") + function.name + "." + std::to_string(functions_.size());
             const auto symbol = LLVMAddFunction(module_, name.c_str(), signature);
             if (!entry) LLVMSetLinkage(symbol, LLVMInternalLinkage);
             functions_.push_back({symbol, function});
@@ -153,9 +153,13 @@ private:
                 return LLVMBuildFPExt(builder_, value, target, "");
             }
             const auto widened = LLVMBuildFPCast(builder_, value, type(Type::float64), "");
-            const auto bits = call("moulang_real_to_int", integer_, {widened});
+              const bool wide = destination == Type::longInt;
+              const auto bits = call(wide ? "moulang_real_to_long" : "moulang_real_to_int",
+                  wide ? target : integer_, {widened});
             return LLVMBuildIntCast2(builder_, bits, target, false, "");
         }
+        if (source == Type::longInt && destination == Type::integer)
+            return call("moulang_checked_int", integer_, {value});
         const bool signedSource = source != Type::byte;
         if (realType(destination)) {
             return signedSource ? LLVMBuildSIToFP(builder_, value, target, "")
@@ -329,7 +333,8 @@ private:
     }
 
     LLVMValueRef stringLiteral(const std::string& value) {
-        const auto bytes = LLVMConstStringInContext2(context_, value.data(), value.size(), false);
+        // Strings carry a byte length. Embedded NUL is data, not a terminator.
+        const auto bytes = LLVMConstStringInContext2(context_, value.data(), value.size(), true);
         const auto global = LLVMAddGlobal(module_, LLVMTypeOf(bytes), ".literal");
         LLVMSetInitializer(global, bytes);
         LLVMSetGlobalConstant(global, true);
@@ -474,7 +479,8 @@ private:
             const auto name = type == Type::float32 ? "moulang_print_float" : "moulang_print_double";
             call(name, none, {value});
         } else {
-            call("moulang_print_int", none, {numericCast(value, type, Type::integer)});
+            if (type == Type::longInt) call("moulang_print_long", none, {value});
+            else call("moulang_print_int", none, {numericCast(value, type, Type::integer)});
         }
     }
 
@@ -525,9 +531,9 @@ private:
         const auto right = expression(*expr.right);
         if (op == "<<" || op == ">>") {
             const auto width = LLVMConstInt(integer_, integerBits(expr.type), false);
-            const auto count = numericCast(right, expr.right->type, Type::integer);
+            const auto count = numericCast(right, expr.right->type, Type::longInt);
             errorSite(expr.location);
-            const auto checked = call("moulang_shift_count", integer_, {count, width});
+            const auto checked = call("moulang_shift_count64", integer_, {count, width});
             const auto offset = numericCast(checked, Type::integer, expr.type);
             if (op == "<<") return LLVMBuildShl(builder_, left, offset, "");
             if (expr.type == Type::byte) return LLVMBuildLShr(builder_, left, offset, "");
@@ -571,6 +577,7 @@ private:
         if (op == "^") return LLVMBuildXor(builder_, left, right, "");
         if (op == "*") return LLVMBuildMul(builder_, left, right, "");
         if (op == "/") {
+            if (operand == Type::longInt) return call("moulang_divide_long", type(operand), {left, right});
             const auto quotient = call("moulang_divide", integer_,
                 {numericCast(left, operand, Type::integer), numericCast(right, operand, Type::integer)});
             return numericCast(quotient, Type::integer, operand);
@@ -590,8 +597,8 @@ private:
     LLVMValueRef expression(const Expression& expr) {
         switch (expr.kind) {
         case ExpressionKind::integer:
-            if (realType(expr.type)) return LLVMConstReal(type(expr.type), expr.integer);
-            return LLVMConstInt(type(expr.type), static_cast<std::uint32_t>(expr.integer), false);
+            if (realType(expr.type)) return LLVMConstReal(type(expr.type), static_cast<double>(expr.integer));
+            return LLVMConstInt(type(expr.type), static_cast<std::uint64_t>(expr.integer), false);
         case ExpressionKind::real: return LLVMConstReal(type(expr.type), expr.real);
         case ExpressionKind::boolean:
             return LLVMConstInt(LLVMInt1TypeInContext(context_), expr.text == "true", false);
@@ -685,7 +692,8 @@ private:
             if (numericType(namedType(expr.text))) {
                 const auto& argument = *expr.arguments[0];
                 const auto value = expression(argument);
-                if (realType(argument.type) && argument.type != expr.type && expr.type != Type::float64) {
+                if ((realType(argument.type) && argument.type != expr.type && expr.type != Type::float64) ||
+                    (argument.type == Type::longInt && expr.type == Type::integer)) {
                     errorSite(expr.location);
                 }
                 return numericCast(value, argument.type, expr.type);
