@@ -1,6 +1,6 @@
 # Repository name transition checklist
 
-The final repository location is https://github.com/KaichuTheFox/Moulang. This document prepares the transition; no GitHub rename, remote update, history rewrite, or Marketplace publication has been performed by this work.
+The owner completed the server-side rename to https://github.com/KaichuTheFox/Moulang. The 0.2.0 release preparation verifies this canonical repository and updates this clone's origin URL. Relative documentation, extension metadata and workflow repository contexts retain their intended targets. No history rewrite is part of this transition. The checklist below remains a reference for other clones and external consumers.
 
 ## Inventory
 

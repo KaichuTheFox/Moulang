@@ -1,5 +1,7 @@
 # Implementation status
 
+Compiler 0.2.0 preview packages the implemented string/long/overload rules and extension 0.1.5. The owner completed the repository rename. Main-branch CI for commit dce376b passed build and installation verification; the 0.2.0 tagged workflow must pass again before publication. See [0.2.0 release notes](RELEASE_NOTES_0.2.0.md). Earlier dated checkpoints below describe their original development versions.
+
 Stage 6 implements the approved R2/P1/O1 rules: signed 64-bit long, checked long-to-int narrowing, explicit long/real mixing and ordinary same-file function overloads. Debug passes eight CTest entries. The new long suite covers boundaries, runtime sites, ABI flows and optimization levels.
 
 ## Current verification and next approval
@@ -24,7 +26,7 @@ Hosted Actions, a real Release upload, clean Windows 10/11 virtual machines, and
 
 - Stage 7 inventories OS dependencies and proposes TargetBackend, HostServices and PlatformRuntime boundaries in PLATFORM_DESIGN.md. No Linux implementation exists; validation is source inspection and document-link checks.
 
-- The approved string escapes decode to validated UTF-8, support Unicode scalars through U+10FFFF, and preserve embedded NUL through byte-length values and I/O. Invalid escapes report ML1004/ML1005 with source coordinates; imports reject NUL. TextMate highlighting recognizes the escape forms. Existing source backslashes must be escaped explicitly. This is unreleased source functionality, not a claim about older compiler archives with the same development version.
+- The approved string escapes decode to validated UTF-8, support Unicode scalars through U+10FFFF, and preserve embedded NUL through byte-length values and I/O. Invalid escapes report ML1004/ML1005 with source coordinates; imports reject NUL. TextMate highlighting recognizes the escape forms. Existing source backslashes must be escaped explicitly. These rules are included in compiler 0.2.0; older development archives may predate them.
 
 - The repository rename is prepared through a [file/link inventory and owner procedure](REPOSITORY_RENAME.md). Local link consistency checks cover project metadata and relative documentation targets. The actual GitHub rename, clone remote updates, hosted URLs, and external consumers remain owner tasks.
 

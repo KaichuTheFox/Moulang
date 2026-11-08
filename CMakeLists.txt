@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 if(POLICY CMP0184)
     cmake_policy(SET CMP0184 NEW)
 endif()
-project(Moulang VERSION 0.1.1 LANGUAGES C CXX)
+project(Moulang VERSION 0.2.0 LANGUAGES C CXX)
 
 set(MOULANG_MSVC_INCLUDE_PREFIX "" CACHE STRING "Override the localized MSVC /showIncludes prefix for Ninja")
 if(CMAKE_GENERATOR MATCHES "^Ninja" AND MOULANG_MSVC_INCLUDE_PREFIX)

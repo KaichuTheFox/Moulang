@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+No changes scheduled after the 0.2.0 preview yet.
+
+## Moulang 0.2.0 preview and bundled VS Code extension 0.1.5 - 2026-11-08
+
+- Publish the Windows x64 compiler kit as v0.2.0 with ZIP and SHA-256 assets after verified CI build and installation jobs.
+- Update installation and extension documentation with versioned compiler downloads and the renamed Moulang repository.
+- Keep previous releases and development checkpoints intact. The bundled 0.1.5 VSIX updates installation guidance; Marketplace publishing is separate.
+
 - Added a memory-lifetime limitation review, ownership/ARC/GC comparison, provisional ARC recommendation and native-engine integration milestones. No memory model or Godot code was changed.
 
 - Recorded ten current error examples and proposed clearer wording, source underlines and hints. This is a design document; existing diagnostic rendering remains in use.

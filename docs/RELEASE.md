@@ -5,7 +5,7 @@ The Windows workflow runs on main pushes, pull requests, manual dispatch, and v-
 1. The build job runs on windows-latest, verifies and extracts the exact LLVM 22.1.8 and LLVM-MinGW 20260616 archives, configures a new CMake/Ninja build, compiles the compiler and separate static runtime, and runs CTest.
 2. It runs extension unit tests and the downloaded, isolated VS Code host suites against source and VSIX payloads. It then installs into a fresh staging directory, packages the extension using the npm lockfile, includes the runtime/import libraries and required notices, writes per-file SHA-256 hashes, and produces a ZIP and ZIP checksum.
 3. A separate installation job downloads only that artifact, checks its ZIP checksum, extracts it, and runs the packaged verifier. That verifier checks every listed file, rejects unlisted files and path traversal, clears development-tool discovery variables, limits PATH to Windows System32, and runs Hello World.
-4. A tag push matching the compiler's CMake version publishes the same verified ZIP and checksum to GitHub Releases after both jobs pass. The release job alone has contents write permission. This workflow does not publish to the extension Marketplace.
+4. A tag push matching the compiler's CMake version publishes the same verified ZIP and checksum as a GitHub preview Release after both jobs pass. The release job alone has contents write permission and uses the versioned release-notes document. Existing tags/assets are never replaced. This workflow does not publish to the extension Marketplace.
 
 The hosted Windows runner already contains development tools. The installation job does not check out source, install LLVM, or configure a compiler, but its restricted discovery test is not a clean-OS proof. The verifier reports whether a Visual Studio installer is present. The archive's own compiler/link kit is used explicitly.
 
@@ -52,11 +52,11 @@ Inside the sandbox, compare the checksum, expand the ZIP to C:\Moulang, and run 
 
 ## Manual release trigger
 
-Only after reviewing CI and completing the desired clean-Windows checks, create and push a version tag matching CMakeLists.txt. For compiler 0.1.1 the commands are:
+After local gates pass and main-branch CI succeeds, create and push a version tag matching CMakeLists.txt. For compiler 0.2.0 the commands are:
 
 ```powershell
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
-These commands are instructions for the owner. No tag or remote release is created by editing this workflow.
+Tag publication must be explicitly authorized by the owner. The owner authorized v0.2.0 publication. Check [Release v0.2.0](https://github.com/KaichuTheFox/Moulang/releases/tag/v0.2.0) for its actual assets. The preview label remains while separate clean-Windows checks are pending. Do not overwrite an existing tag or Release on a retry.

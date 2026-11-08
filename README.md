@@ -8,11 +8,11 @@ Moulang is a statically typed programming language from the HAZOS development te
 
 **Currently Windows x64 only.** Linux portability is a [design proposal](docs/PLATFORM_DESIGN.md); no Linux implementation has been validated.
 
-Use these steps after a tag workflow has published a release. The links target the planned final repository name; until that rename is complete, open Releases from the current repository page. A new public release has not been verified in this local session.
+Moulang 0.2.0 is the Windows x64 preview release. It includes string escapes, signed 64-bit long and ordinary function overloads. See the [release notes](docs/RELEASE_NOTES_0.2.0.md) for compatibility changes and remaining limitations.
 
-1. Download `moulang-windows-x64.zip` and its `.sha256` from [GitHub Releases](https://github.com/KaichuTheFox/Moulang/releases/latest). Compare the checksum using `Get-FileHash -Algorithm SHA256`, then extract the whole ZIP.
+1. Download the [compiler ZIP](https://github.com/KaichuTheFox/Moulang/releases/download/v0.2.0/moulang-windows-x64.zip) and [SHA-256 file](https://github.com/KaichuTheFox/Moulang/releases/download/v0.2.0/moulang-windows-x64.zip.sha256) from [Release v0.2.0](https://github.com/KaichuTheFox/Moulang/releases/tag/v0.2.0). Compare `Get-FileHash .\moulang-windows-x64.zip -Algorithm SHA256` with the checksum file, then extract the whole ZIP, for example to `C:\Moulang`.
 2. Add its `bin` folder to your Windows user `PATH`, reopen the terminal, and run `moulang --version`. Keep `bin/toolchain` and its notices alongside the compiler.
-3. In VS Code, run **Extensions: Install from VSIX** and select the included VSIX. Set `moulang.executablePath` if the compiler is outside `PATH`.
+3. In VS Code, run **Extensions: Install from VSIX** and select the included VSIX. Set `moulang.executablePath` to `C:\Moulang\bin\moulang.exe` if that is your extraction location. Open your source project folder, create and save a `.m` file inside it, then click the play button. Compiler and source folders may be different.
 
 The package targets Windows 10/11 x64 and uses Windows system DLLs. Run its included `Verify-Install.ps1` to check hashes and compile Hello World. See the [release and clean-Windows validation guide](docs/RELEASE.md).
 
@@ -92,7 +92,7 @@ main() {
 }
 ```
 
-Use `\\` for a literal backslash, or `/` in file paths. Unknown escapes and invalid decoded UTF-8 are compile errors. See the [string rules](docs/LANGUAGE_SPEC.md#string-escapes). This feature is unreleased source work; previously downloaded compiler archives may predate it even when they share the development version number.
+Use `\\` for a literal backslash, or `/` in file paths. Unknown escapes and invalid decoded UTF-8 are compile errors. These rules are included in compiler 0.2.0; older development archives may predate them. See the [string rules](docs/LANGUAGE_SPEC.md#string-escapes).
 
 ## Visual Studio Code
 
@@ -111,7 +111,7 @@ In VS Code, select **Extensions > Install from VSIX** and open that package. Ope
 
 Open a saved `.m` file and click the play button in the upper right of the editor. The **Moulang: Run Current File** command in the Command Palette does the same thing. The extension saves edits before running. Output appears in the terminal and compiler errors appear in **Problems**. **Moulang: Live Diagnostics** checks unsaved changes in a trusted workspace.
 
-The display name is **Moulang for VS Code** and the identity is `KaichuTheFox.moulang`. Extension 0.1.4 and 0.1.3 require compiler 0.1.1. When the compiler cannot be found, **Open Settings** opens `moulang.executablePath` directly. See the [extension testing guide](tests/vscode/README.md) for isolated source and packaged-VSIX checks.
+The display name is **Moulang for VS Code** and the identity is `KaichuTheFox.moulang`. The bundled extension 0.1.5 is tested with compiler 0.2.0; existing extension 0.1.4 can also invoke this compiler by updating its executable path. Extension 0.1.5 is included as a VSIX; publishing it to the Marketplace is a separate step. When the compiler cannot be found, **Open Settings** opens `moulang.executablePath` directly. See the [extension testing guide](tests/vscode/README.md).
 
 To load the extension from source, run this from the repository root:
 

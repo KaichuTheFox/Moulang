@@ -25,6 +25,10 @@ $workspace = (New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempP
 $env:TEMP = $workspace
 $env:TMP = $workspace
 $compiler = Join-Path $rootPath 'bin/moulang.exe'
+$version = & $compiler --version 2>&1
+if ($LASTEXITCODE -ne 0 -or ($version -join "`n") -cne ('Moulang ' + $manifest.compilerVersion)) {
+    throw 'The installed compiler version differs from the package manifest.'
+}
 $output = & $compiler run (Join-Path $rootPath 'examples/hello.m') 2>&1
 if ($LASTEXITCODE -ne 0 -or ($output -join "`n") -cne 'Hello Moulang!') {
     throw ('The installed compiler failed to compile and run Hello World. ' + ($output -join "`n"))

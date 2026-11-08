@@ -44,7 +44,7 @@ Push-Location $workspace
 try {
     $env:TEMP = $workspace
     $env:TMP = $workspace
-    Check (Invoke-Native $Compiler @('--version')) 0 'Moulang 0.1.1'
+    Check (Invoke-Native $Compiler @('--version')) 0 'Moulang 0.2.0'
     $help = Invoke-Native $Compiler @('--help')
     if ($help.Code -ne 0 -or $help.Text -notmatch '^Usage:') {
         throw "Expected CLI help, got $($help.Text)"

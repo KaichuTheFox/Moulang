@@ -4,6 +4,12 @@ Language support and native execution for Moulang (.m), the programming language
 
 The extension recognizes .m files and provides syntax highlighting, snippets, completion, and compiler diagnostics. It uses a separate Windows x64 Moulang compiler.
 
+## Install the compiler
+
+Download the [Moulang 0.2.0 compiler ZIP](https://github.com/KaichuTheFox/Moulang/releases/download/v0.2.0/moulang-windows-x64.zip) and its [SHA-256 file](https://github.com/KaichuTheFox/Moulang/releases/download/v0.2.0/moulang-windows-x64.zip.sha256). Compare the ZIP's `Get-FileHash -Algorithm SHA256` result before extracting the whole package, for example to `C:\Moulang`. Keep `bin/toolchain` and its notices. You do not need Visual Studio or an LLVM SDK to use this bundle; additional clean-Windows validation remains pending for this preview.
+
+Set `moulang.executablePath` to `C:\Moulang\bin\moulang.exe`, without quotes, or add the bin folder to PATH and restart VS Code. The extension does not install or download a compiler automatically. Run the extracted `Verify-Install.ps1` to check package hashes and execute Hello World.
+
 1. Open the folder containing your .m file.
 2. Set **Moulang: Executable Path** to the full path to moulang.exe if it is outside PATH.
 3. Open a saved `.m` file and click the play button in the upper right of the editor, or run **Moulang: Run Current File** from the Command Palette. Output appears in the terminal and source diagnostics appear in **Problems**.
@@ -14,12 +20,13 @@ If the compiler cannot be found, choose **Open Settings** in the error notificat
 
 ## Compiler compatibility
 
-- Extension 0.1.4 requires compiler 0.1.1. It adds compiler discovery, the settings action, and isolated extension tests.
+- Bundled extension 0.1.5 is tested with compiler 0.2.0 and updates download/setup guidance. Marketplace publication is separate from the compiler Release.
+- Existing extension 0.1.4 can invoke compiler 0.2.0 by updating its executable path. It originally targeted compiler 0.1.1 and added compiler discovery and the settings action.
 - Extension 0.1.3 requires compiler 0.1.1. It introduces the current extension identity and editor play button.
 - Compiler and extension versions are separate. A VSIX alone does not install the native compiler.
 
-The current source revision additionally supports string escapes and highlights them in this extension. Escaped Unicode values and hexadecimal bytes are validated by the compiler. Previously downloaded compiler archives can predate this unreleased feature even when they share the development version number; build the current revision when testing the new syntax.
+Compiler 0.2.0 supports the documented string escapes, signed 64-bit long and ordinary function overloads. This extension highlights escapes; the compiler validates Unicode and decoded UTF-8. Earlier development archives may predate these features. See the [0.2.0 release notes](https://github.com/KaichuTheFox/Moulang/releases/tag/v0.2.0).
 
-See the [compiler installation guide](https://github.com/KaichuTheFox/Moulang#install-without-building) and [issue tracker](https://github.com/KaichuTheFox/Moulang/issues). These URLs target the planned repository name; until the owner completes that rename, open the corresponding pages from the current repository.
+See the [compiler installation guide](https://github.com/KaichuTheFox/Moulang#install-without-building) and [issue tracker](https://github.com/KaichuTheFox/Moulang/issues) in the Moulang repository.
 
 The extension is licensed under MIT.

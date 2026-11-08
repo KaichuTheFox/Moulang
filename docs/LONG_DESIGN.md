@@ -36,4 +36,4 @@ For O1, literal types are determined before overload ranking: f(1) selects an in
 
 Cover INT_MAX+1 as a literal versus expression, INT_MIN, LONG_MAX, LONG_MIN, values outside long, positive/negative printing, -O0/-O2/-O3 wrap behavior, long division and shifts including huge long shift counts, explicit narrowing, implicit widening and forbidden narrowing, long/real precision policy, nullable/field/argument/return flows, and overload selection/ambiguity or duplicate rejection according to O. Preserve prior compiler, privacy, relocation, static import, package integrity, TextMate, and VS Code host checks.
 
-The compiler and extension versions still describe unreleased working source. Final release version/tag selection remains a separate owner review; do not overwrite previous release archives or tags to distribute the changed integer behavior.
+The owner selected compiler 0.2.0 for these integer rules. The release bundle includes extension 0.1.5; prior archives and tags must remain intact. See RELEASE_NOTES_0.2.0.md for compatibility changes.
