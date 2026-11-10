@@ -1,8 +1,13 @@
 # Changelog
 
-## Unreleased
+## Moulang 0.3.0 preview and bundled VS Code extension 0.1.6 - 2026-11-10
 
-No changes scheduled after the 0.2.0 preview yet.
+- Breaking source change. Rename the UTF-8 type from `string` to `str` and report a migration diagnostic for the old spelling.
+- Add Unicode code point indexing and slicing, string concatenation and repetition, multi-argument `print()`, static `type()`, Hangul identifiers, and block comments.
+- Add `format(...)` and `input(variable)` items in print blocks, with checked brace templates and typed Unicode input.
+- Add shared `str[]` lists, indexed updates, list methods and post-mutation blocks, `len()`, and list rendering.
+- Add ragged nested string lists with inferred or explicit types. Record a mixed-element list design separately.
+- Add `RText()` and `WText()` aliases and native append with `AText()`.
 
 ## Moulang 0.2.0 preview and bundled VS Code extension 0.1.5 - 2026-11-08
 

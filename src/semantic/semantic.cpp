@@ -19,12 +19,14 @@ template<class Declaration>
 using Names = std::unordered_map<std::string, Declaration*>;
 
 bool reserved(std::string_view name) {
-    return namedType(name) != Type::inferred || name == "main" || name == "print" ||
+    return namedType(name) != Type::inferred || name == "string" || name == "type" || name == "len" ||
+        name == "main" || name == "print" ||
         name == "var" || name == "true" || name == "false" ||
         name == "def" || name == "return" || name == "if" || name == "elif" || name == "else" ||
         name == "while" || name == "for" || name == "in" || name == "break" || name == "continue" ||
         name == "append" || name == "null" || name == "struct" || name == "foreach" || name == "import" ||
-        name == "readText" || name == "writeText" || name == "public" || name == "private" ||
+        name == "readText" || name == "writeText" || name == "RText" || name == "WText" || name == "AText" ||
+        name == "public" || name == "private" ||
         name == "class" || name == "new" || name == "this";
 }
 
@@ -38,6 +40,11 @@ bool scalarAssignable(Type destination, Type source) {
     const auto base = nullableBase(destination);
     return destination == source || losslessNumeric(destination, source) ||
         (base != Type::inferred && (source == base || source == Type::nullValue || losslessNumeric(base, source)));
+}
+
+bool emptyListTree(const Expression& expression) {
+    return expression.kind == ExpressionKind::slice &&
+        std::ranges::all_of(expression.arguments, [](const auto& item) { return emptyListTree(*item); });
 }
 
 Type receiverType(const Variables& variables) {
@@ -152,17 +159,55 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
         expression.borrowOwner = variable.borrowOwner;
         return expression.type = variable.nonNull && !keepNullable ? nullableBase(variable.type) : variable.type;
     }
-    case ExpressionKind::slice:
+    case ExpressionKind::slice: {
+        Type element = Type::inferred;
+        std::vector<Expression*> empty;
         for (auto& item : expression.arguments) {
-            if (checkExpression(*item, variables) != Type::integer) {
-                throw Diagnostic(item->location, "ML3018", "A slice literal must contain int values.");
+            if (emptyListTree(*item)) {
+                empty.push_back(item.get());
+                continue;
             }
+            const auto itemType = checkExpression(*item, variables);
+            if (itemType != Type::integer && itemType != Type::string && !stringListDepth(itemType)) {
+                throw Diagnostic(item->location, "ML3018", "A collection literal requires int, str, or string list elements.");
+            }
+            if (element != Type::inferred && element != itemType) {
+                throw Diagnostic(item->location, "ML3018", "A collection literal requires elements of the same type.");
+            }
+            element = itemType;
         }
-        return expression.type = Type::intSlice;
+        if (!empty.empty() && !stringListDepth(element)) {
+            throw Diagnostic(empty.front()->location, "ML3018", "An empty nested literal requires a string list element type.");
+        }
+        for (auto* item : empty) checkValue(*item, variables, element);
+        if (element == Type::integer || element == Type::inferred) return expression.type = Type::intSlice;
+        const auto depth = stringListDepth(element) + 1;
+        if (depth > maxStringListDepth) {
+            throw Diagnostic(expression.location, "ML3018", "A string list literal supports up to two dimensions.");
+        }
+        return expression.type = stringList(depth);
+    }
     case ExpressionKind::subscript:
     case ExpressionKind::view: {
         const auto source = checkExpression(*expression.left, variables);
+        if (source == Type::string) {
+            for (auto* bound : {expression.right.get(), expression.alternative.get(), expression.step.get()}) {
+                if (bound && checkExpression(*bound, variables) != Type::integer) {
+                    throw Diagnostic(bound->location, "ML3018", "String indices, bounds and steps must have type int.");
+                }
+            }
+            return expression.type = Type::string;
+        }
+        if (stringListDepth(source)) {
+            if (expression.kind != ExpressionKind::subscript ||
+                checkExpression(*expression.right, variables) != Type::integer) {
+                throw Diagnostic(expression.location, "ML3018", "A string list requires a single int index.");
+            }
+            return expression.type = listElement(source);
+        }
         if (!intCollection(source) ||
+            !expression.right || expression.step ||
+            (expression.kind == ExpressionKind::view && !expression.alternative) ||
             checkExpression(*expression.right, variables) != Type::integer ||
             (expression.alternative && checkExpression(*expression.alternative, variables) != Type::integer)) {
             throw Diagnostic(expression.location, "ML3018", "Indexing requires an int collection and int indices.");
@@ -230,6 +275,31 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
         const bool safe = expression.kind == ExpressionKind::safeMethodCall;
         auto receiver = checkExpression(*expression.left, variables, false, safe);
         if (safe) receiver = nullableBase(receiver);
+        if (stringListDepth(receiver)) {
+            const auto& name = expression.text;
+            if (stringListDepth(receiver) > 1 && (name == "sort" || name == "remove")) {
+                throw Diagnostic(expression.location, "ML3043", "Sort and remove require a flat str[] list.");
+            }
+            const bool insert = name == "insert";
+            const bool takesValue = insert || name == "append" || name == "remove";
+            const bool pop = name == "pop";
+            if (!takesValue && !pop && name != "sort") {
+                throw Diagnostic(expression.location, "ML3043", "Unknown string list method.");
+            }
+            if (expression.arguments.size() != (insert ? 2u : takesValue ? 1u : 0u)) {
+                throw Diagnostic(expression.location, "ML3011", "Wrong number of string list method arguments.");
+            }
+            if (insert && checkExpression(*expression.arguments.front(), variables) != Type::integer) {
+                throw Diagnostic(expression.arguments.front()->location, "ML3011", "List insert requires an int index.");
+            }
+            if (takesValue && checkValue(*expression.arguments.back(), variables, listElement(receiver)) != listElement(receiver)) {
+                throw Diagnostic(expression.arguments.back()->location, "ML3011", "Argument must match the list element type.");
+            }
+            if (!pop && !allowVoid) {
+                throw Diagnostic(expression.location, "ML3012", "This list method does not produce a value.");
+            }
+            return expression.type = pop ? listElement(receiver) : Type::none;
+        }
         const auto method = findMethod(receiver, expression.text);
         if (!method) {
             throw Diagnostic(expression.location, "ML3035", "Unknown method on the receiver type.");
@@ -253,19 +323,36 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
         return expression.type = function.result;
     }
     case ExpressionKind::call: {
-        if (expression.text == "readText" || expression.text == "writeText") {
-            const bool read = expression.text == "readText";
+        if (expression.text == "type") {
+            if (expression.arguments.size() != 1) {
+                throw Diagnostic(expression.location, "ML3011", "Type requires exactly one argument.");
+            }
+            expression.operandType = checkExpression(*expression.arguments.front(), variables, false, true);
+            return expression.type = Type::string;
+        }
+        if (expression.text == "len") {
+            if (expression.arguments.size() != 1 ||
+                !stringListDepth(checkExpression(*expression.arguments.front(), variables))) {
+                throw Diagnostic(expression.location, "ML3011", "Len requires one string list argument.");
+            }
+            return expression.type = Type::integer;
+        }
+        if (expression.text == "readText" || expression.text == "writeText" ||
+            expression.text == "RText" || expression.text == "WText" || expression.text == "AText") {
+            const bool read = expression.text == "readText" || expression.text == "RText";
             if (expression.arguments.size() != (read ? 1u : 2u)) {
                 throw Diagnostic(expression.location, "ML3011", "Wrong number of text file arguments.");
             }
             for (const auto& arg : expression.arguments) {
                 if (checkExpression(*arg, variables) != Type::string) {
-                    throw Diagnostic(arg->location, "ML3011", "Text file arguments must have type string.");
+                    throw Diagnostic(arg->location, "ML3011", "Text file arguments must have type str.");
                 }
             }
             if (!read && !allowVoid) {
                 throw Diagnostic(expression.location, "ML3012", "A void function has no value.");
             }
+            if (expression.text == "RText") expression.text = "readText";
+            if (expression.text == "WText") expression.text = "writeText";
             return expression.type = read ? Type::string : Type::none;
         }
         if (const auto target = namedType(expression.text); numericType(target)) {
@@ -303,6 +390,9 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
             return expression.type = structure.type;
         }
         const auto found = lookupName(localFunctions_, exportedFunctions_, expression.text, file);
+        if (!found && (expression.text == "input" || expression.text == "format")) {
+            throw Diagnostic(expression.location, "ML3042", "Use input() or format() directly inside a print block.");
+        }
         if (!found || expression.text == "main") {
             throw Diagnostic(expression.location, "ML3010", "Unknown callable function.");
         }
@@ -408,6 +498,10 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
             narrow(*expression.left, op == "&&", rightVariables);
         }
         const auto right = checkExpression(*expression.right, logical ? rightVariables : variables, false, nullCheck);
+        if (left == Type::string && ((op == "+" && right == Type::string) ||
+            (op == "*" && right == Type::integer))) {
+            return expression.type = Type::string;
+        }
         if (op == "??") {
             if (const auto base = nullableBase(left); base != Type::inferred && canAssign(base, right)) {
                 return expression.type = base;
@@ -443,8 +537,26 @@ Type Analyzer::checkExpression(Expression& expression, const Variables& variable
 }
 
 Type Analyzer::checkValue(Expression& expression, const Variables& variables, Type expected) {
+    if (stringListDepth(expected) && expression.kind == ExpressionKind::slice) {
+        for (auto& item : expression.arguments) {
+            if (checkValue(*item, variables, listElement(expected)) != listElement(expected)) {
+                throw Diagnostic(item->location, "ML3018", "Literal element does not match the string list type.");
+            }
+        }
+        return expression.type = expected;
+    }
     const auto actual = checkExpression(expression, variables);
+    if (expected == Type::float32 && expression.kind == ExpressionKind::real) {
+        const double limit = (std::numeric_limits<float>::max)();
+        if (expression.real >= -limit && expression.real <= limit &&
+            static_cast<double>(static_cast<float>(expression.real)) == expression.real) {
+            return expression.type = expected;
+        }
+    }
     if (fixedIntArrayType(expected) && expression.kind == ExpressionKind::slice) {
+        if (actual != Type::intSlice) {
+            throw Diagnostic(expression.location, "ML3018", "A fixed int array literal requires int elements.");
+        }
         if (expression.arguments.size() != fixedIntArrayLength(expected)) {
             throw Diagnostic(expression.location, "ML3032", "Fixed array initializer length does not match the declaration.");
         }
@@ -527,14 +639,38 @@ bool Analyzer::checkBlock(std::vector<Statement>& body, Variables variables, uns
         }
         switch (statement.kind) {
         case StatementKind::print: {
-            const auto type = checkExpression(*statement.value, variables);
-            if (!numericType(type) && type != Type::boolean && type != Type::string) {
-                throw Diagnostic(location, "ML3018", "Print requires a non-null scalar value.");
+            const auto checkOutput = [&](auto& argument, bool lists) {
+                const auto type = checkExpression(*argument, variables);
+                if (!numericType(type) && type != Type::boolean && type != Type::string && !(lists && stringListDepth(type))) {
+                    throw Diagnostic(argument->location, "ML3018", lists ? "Print requires non-null scalar values or string lists."
+                        : "Format requires non-null scalar values.");
+                }
+            };
+            for (auto& argument : statement.arguments) checkOutput(argument, true);
+            if (statement.format) {
+                if (statement.arguments.size() != 1 || statement.arguments.front()->type != Type::string) {
+                    throw Diagnostic(statement.format->location, "ML3042", "Format requires a single str print template.");
+                }
+                for (auto& argument : statement.format->arguments) checkOutput(argument, false);
+            }
+            for (auto& target : statement.inputTargets) {
+                target.type = lookup(variables, target.text, target.location).type;
+                if (!numericType(target.type) && target.type != Type::boolean && target.type != Type::string) {
+                    throw Diagnostic(target.location, "ML3042", "Input requires a non-nullable scalar variable.");
+                }
             }
             break;
         }
         case StatementKind::call:
             checkExpression(*statement.value, variables, true);
+            if (statement.postMutation) {
+                if (statement.value->kind != ExpressionKind::methodCall || !stringListDepth(statement.value->left->type)) {
+                    throw Diagnostic(location, "ML3043", "A post-mutation block requires a string list method.");
+                }
+                const bool exits = checkBlock(statement.body, variables, loopDepth, returnType, inferReturn);
+                terminates = terminates || exits;
+                forgetNarrowing(variables);
+            }
             break;
         case StatementKind::fieldAssignment:
             statement.type = checkExpression(*statement.target, variables);
@@ -544,11 +680,15 @@ bool Analyzer::checkBlock(std::vector<Statement>& body, Variables variables, uns
                 }
             } else {
                 const auto& target = *statement.target;
-                if (target.kind != ExpressionKind::subscript || !fixedIntArrayType(target.left->type) ||
-                    target.left->kind != ExpressionKind::variable) {
-                    throw Diagnostic(location, "ML3034", "Only a local fixed array supports indexed assignment.");
+                if (target.kind != ExpressionKind::subscript) {
+                    throw Diagnostic(location, "ML3034", "Indexed assignment requires a fixed int array or string list.");
                 }
-                checkArrayMutation(target.left->text, variables, location);
+                if (!stringListDepth(target.left->type)) {
+                    if (!fixedIntArrayType(target.left->type) || target.left->kind != ExpressionKind::variable) {
+                        throw Diagnostic(location, "ML3034", "Indexed assignment requires a local fixed int array or string list.");
+                    }
+                    checkArrayMutation(target.left->text, variables, location);
+                }
             }
             if (!canAssign(statement.type, checkValue(*statement.value, variables, statement.type))) {
                 throw Diagnostic(location, "ML3007", "Field and expression types must match.");
@@ -587,7 +727,9 @@ bool Analyzer::checkBlock(std::vector<Statement>& body, Variables variables, uns
             break;
         }
         case StatementKind::returnValue: {
-            const auto type = statement.value ? checkExpression(*statement.value, variables) : Type::none;
+            const auto type = statement.value && !inferReturn && returnType && stringListDepth(*returnType)
+                ? checkValue(*statement.value, variables, *returnType)
+                : statement.value ? checkExpression(*statement.value, variables) : Type::none;
             if (type == Type::borrowedIntView) {
                 throw Diagnostic(location, "ML3034", "A view of a local fixed array cannot escape the function.");
             }

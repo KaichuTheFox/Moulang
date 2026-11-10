@@ -44,7 +44,7 @@ function Assert-Success($Result) {
 
 $modules = (New-Item -ItemType Directory -Path (Join-Path $workspace 'modules')).FullName
 $accent = [char] 0xE9
-[IO.File]::WriteAllText((Join-Path $modules ($accent + '.m')), 'string imported() { return "A\0B" }', $utf8)
+[IO.File]::WriteAllText((Join-Path $modules ($accent + '.m')), 'str imported() { return "A\0B" }', $utf8)
 $source = @'
 import "modules/\u{E9}.m"
 main() {

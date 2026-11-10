@@ -1,3 +1,3 @@
-string label(bool even) {
+str label(bool even) {
     return even ? "even" : "odd"
 }

@@ -88,12 +88,21 @@ std::unique_ptr<Expression> Parser::parseOperand(bool multiline) {
 
 std::unique_ptr<Expression> Parser::parseSubscript(std::unique_ptr<Expression> base) {
     const auto bracket = take();
-    auto index = parseExpression(1, true);
+    skipNewlines();
+    auto index = current_.kind == TokenKind::colon ? nullptr : parseExpression(1, true);
     const bool view = current_.kind == TokenKind::colon;
     std::unique_ptr<Expression> end;
+    std::unique_ptr<Expression> step;
     if (view) {
         take();
-        end = parseExpression(1, true);
+        skipNewlines();
+        if (current_.kind != TokenKind::colon && current_.kind != TokenKind::rightBracket) {
+            end = parseExpression(1, true);
+        }
+        if (current_.kind == TokenKind::colon) {
+            take();
+            step = parseExpression(1, true);
+        }
     }
     expect(TokenKind::rightBracket, "Expected ']' after index or range.");
     auto result = std::make_unique<Expression>(Expression{
@@ -101,6 +110,7 @@ std::unique_ptr<Expression> Parser::parseSubscript(std::unique_ptr<Expression> b
         std::move(base), std::move(index)
     });
     result->alternative = std::move(end);
+    result->step = std::move(step);
     return result;
 }
 
@@ -193,9 +203,38 @@ Statement Parser::parseStatement() {
     }
     if (word.text == "print") {
         expect(TokenKind::leftParen, "Expected '(' after print.");
-        auto value = parseExpression(1, true);
-        expect(TokenKind::rightParen, "Expected ')' after the expression.");
-        return {StatementKind::print, word.location, {}, Type::inferred, std::move(value)};
+        Statement statement{StatementKind::print, word.location, {}, Type::none, nullptr};
+        parseArguments(statement.arguments, TokenKind::rightParen);
+        if (statement.arguments.empty()) {
+            throw Diagnostic(word.location, "ML2001", "Print requires at least one argument.");
+        }
+        expect(TokenKind::rightParen, "Expected ')' after print arguments.");
+        if (current_.kind == TokenKind::leftBrace) {
+            take();
+            skipNewlines();
+            while (current_.kind != TokenKind::rightBrace) {
+                auto item = expect(TokenKind::identifier, "Expected format() or input() in the print block.");
+                if (item.text == "format" && !statement.format && statement.inputTargets.empty()) {
+                    statement.format = parseCall(std::move(item));
+                } else if (item.text == "input") {
+                    expect(TokenKind::leftParen, "Expected '(' after input.");
+                    skipNewlines();
+                    auto target = expect(TokenKind::identifier, "Input requires a variable name.");
+                    skipNewlines();
+                    expect(TokenKind::rightParen, "Input takes exactly one variable.");
+                    statement.inputTargets.push_back(
+                        {ExpressionKind::variable, target.location, std::move(target.text), {}, {}});
+                } else {
+                    throw Diagnostic(item.location, "ML2008", "A print block accepts one format() before any input() calls.");
+                }
+                if (current_.kind != TokenKind::rightBrace) {
+                    expect(TokenKind::newline, "Expected a newline between print block items.");
+                    skipNewlines();
+                }
+            }
+            take();
+        }
+        return statement;
     }
     if (word.text == "return") {
         auto value = current_.kind == TokenKind::newline || current_.kind == TokenKind::rightBrace
@@ -245,7 +284,7 @@ Statement Parser::parseStatement() {
         return {StatementKind::call, location, {}, Type::none, parseCall(std::move(word))};
     }
     if (current_.kind == TokenKind::dot || current_.kind == TokenKind::safeDot ||
-        current_.kind == TokenKind::leftBracket) {
+        (current_.kind == TokenKind::leftBracket && word.text != "str" && word.text != "string")) {
         const auto location = word.location;
         auto target = std::make_unique<Expression>(Expression{
             ExpressionKind::variable, location, std::move(word.text), {}, {}
@@ -256,7 +295,12 @@ Statement Parser::parseStatement() {
             else target = parseMember(std::move(target), false);
         }
         if (target->kind == ExpressionKind::methodCall || target->kind == ExpressionKind::safeMethodCall) {
-            return {StatementKind::call, location, {}, Type::none, std::move(target)};
+            Statement statement{StatementKind::call, location, {}, Type::none, std::move(target)};
+            if (current_.kind == TokenKind::leftBrace) {
+                statement.postMutation = true;
+                statement.body = parseBlock();
+            }
+            return statement;
         }
         expectOperator("=");
         Statement statement{StatementKind::fieldAssignment, location, {}, Type::inferred, parseExpression()};
@@ -310,11 +354,25 @@ Type Parser::internStructure(const std::string& name) {
 }
 
 Type Parser::parseType(const Token& token) {
+    if (token.text == "string") {
+        throw Diagnostic(token.location, "ML2002", "The string type was renamed to 'str'. Use 'str' here.");
+    }
     const auto builtin = namedType(token.text);
     return parseTypeSuffix(builtin == Type::inferred ? internStructure(token.text) : builtin);
 }
 
 Type Parser::parseTypeSuffix(Type type) {
+    if (type == Type::string) {
+        unsigned depth = 0;
+        while (current_.kind == TokenKind::leftBracket) {
+            const auto bracket = take();
+            if (++depth > maxStringListDepth) {
+                throw Diagnostic(bracket.location, "ML2002", "A string list type supports up to two dimensions.");
+            }
+            expect(TokenKind::rightBracket, "Expected ']' in string list type.");
+        }
+        if (depth) type = stringList(depth);
+    }
     if (current_.kind != TokenKind::operation || current_.text != "?") return type;
     const auto marker = take();
     const auto nullable = nullableType(type);

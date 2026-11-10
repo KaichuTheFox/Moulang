@@ -3,6 +3,7 @@
   "scopeName": "source.moulang",
   "patterns": [
     { "name": "comment.line.double-slash.moulang", "match": "//.*$" },
+    { "name": "comment.block.moulang", "begin": "/\\*", "end": "\\*/" },
     {
       "name": "string.quoted.double.moulang", "begin": "\"", "end": "\"|$",
       "patterns": [
@@ -10,7 +11,8 @@
         { "name": "invalid.illegal.escape.moulang", "match": "\\\\(?:.|$)" }
       ]
     },
-    { "name": "storage.type.moulang", "match": "\\b(void|char|short|int|long|float|double|bool|string|var|def)\\b" },
+    { "name": "storage.type.moulang", "match": "\\b(void|char|short|int|long|float|double|bool|str|var|def)\\b" },
+    { "name": "invalid.deprecated.type.moulang", "match": "\\bstring\\b" },
     { "name": "storage.type.struct.moulang", "match": "\\b(struct|class)\\b" },
     { "name": "storage.modifier.moulang", "match": "\\b(public|private)\\b" },
     { "name": "keyword.operator.new.moulang", "match": "\\bnew\\b" },
@@ -19,6 +21,8 @@
     { "name": "constant.language.moulang", "match": "\\b(true|false|null)\\b" },
     { "name": "constant.numeric.moulang", "match": "\\b[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\\b" },
     { "name": "entity.name.function.moulang", "match": "\\bmain\\b(?=\\s*\\()" },
-    { "name": "support.function.moulang", "match": "\\b(print|append|readText|writeText)\\b(?=\\s*\\()" }
+    { "name": "support.function.moulang", "match": "\\b(print|type|input|format|append|len|readText|writeText|RText|WText|AText)\\b(?=\\s*\\()" },
+    { "name": "support.function.moulang", "match": "(?<=\\.)\\b(insert|remove|sort|pop)\\b(?=\\s*\\()" },
+    { "name": "entity.name.function.moulang", "match": "\\b\\p{Hangul}[A-Za-z_0-9\\p{Hangul}]*(?=\\s*\\()" }
   ]
 }

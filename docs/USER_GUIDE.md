@@ -18,6 +18,8 @@ Install the VSIX using **Extensions: Install from VSIX**. Open the folder contai
 ## Learn by running the examples
 
 - [Variables](../examples/variables.m) shows explicit types, `var` inference, arithmetic, and reassignment. [Numbers](../examples/numbers.m) shows numeric types and conversions.
+- [Text](../examples/text.m) shows the current source build's `str` declarations, code point slices, multi-argument print, and static type queries. Use the [print block example](LANGUAGE_SPEC.md#print-blocks) to try formatted prompts and typed line input.
+- [String lists](../examples/lists.m) shows list methods, shared rows, ragged tables, and post-mutation blocks in the current source build.
 - [Control flow](../examples/control.m) shows functions, return values, branches, and loops.
 - [Slices and null](../examples/slices-and-null.m) shows integer slices, `append`, and nullable values. [Advanced examples](../examples/advanced.m) show slice views and `foreach`. The [language specification](LANGUAGE_SPEC.md#experimental-fixed-arrays-and-classes) describes local fixed integer arrays.
 - [Structs](../examples/structs.m) demonstrates value copies and fields. [Objects](../examples/objects.m) demonstrates classes, constructors, and single inheritance.

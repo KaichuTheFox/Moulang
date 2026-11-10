@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)] [string] $Compiler,
     [Parameter(Mandatory)] [string] $Hello,
-    [Parameter(Mandatory)] [string] $TestRoot
+    [Parameter(Mandatory)] [string] $TestRoot,
+    [Parameter(Mandatory)] [string] $ExpectedVersion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,7 +45,7 @@ Push-Location $workspace
 try {
     $env:TEMP = $workspace
     $env:TMP = $workspace
-    Check (Invoke-Native $Compiler @('--version')) 0 'Moulang 0.2.0'
+    Check (Invoke-Native $Compiler @('--version')) 0 "Moulang $ExpectedVersion"
     $help = Invoke-Native $Compiler @('--help')
     if ($help.Code -ne 0 -or $help.Text -notmatch '^Usage:') {
         throw "Expected CLI help, got $($help.Text)"
@@ -59,7 +60,7 @@ main() {
     int value = 2 + 3 * 4
     var count = value
     bool ready = count == 14 && !false
-    string label = "initial"
+    str label = "initial"
     label = "updated"
     print(label)
     print(ready)
@@ -116,7 +117,7 @@ int factorial(int n) {
 
 def forward(int n) { return doubleValue(n) }
 def doubleValue(int n) { return n * 2 }
-string echo(string value) { return value }
+str echo(str value) { return value }
 void greet() { print("hello") }
 int limit() {
     print("limit")
@@ -152,7 +153,7 @@ main() {
     print("equal" == echo("equal"))
     print("a" != "aa")
 }
-string echo(string text) { return text }
+str echo(str text) { return text }
 '@
     [IO.File]::WriteAllText((Join-Path $workspace 'collections.m'), $collections, $utf8)
     $collectionOutput = @('40', '99', '50', '7', '15', 'true', 'true') -join "`n"
@@ -166,7 +167,7 @@ string echo(string text) { return text }
 
     $nulls = @'
 main() {
-    string? nickname = null
+    str? nickname = null
     print(nickname ?? "Unknown")
     nickname = "Moulang"
     if (nickname != null) { print(nickname) }
@@ -251,7 +252,7 @@ double exact(double value) { return value }
 
     $structures = @'
 struct LabelledPosition {
-    string label
+    str label
     Position position
 }
 
@@ -384,7 +385,7 @@ class Counter {
 
 class Player {
     private Counter points = new Counter(10)
-    public string name = "Player"
+    public str name = "Player"
     public int score() { return points.value() }
     public void play() { points.increase() }
 }
@@ -594,7 +595,7 @@ void main(
     Check-Error 'slice-element.m' 'main() { int a[] = [true] }' 'ML3018'
     Check-Error 'slice-index.m' 'main() { print([1][true]) }' 'ML3018'
     Check-Error 'slice-append.m' 'main() { var a = append([1], false) }' 'ML3018'
-    Check-Error 'null-assignment.m' 'main() { string a = null }' 'ML3007'
+    Check-Error 'null-assignment.m' 'main() { str a = null }' 'ML3007'
     Check-Error 'null-inference.m' 'main() { var a = null }' 'ML3019'
     Check-Error 'null-default.m' "main() { int? a = null`nprint(a ?? true) }" 'ML3019'
     Check-Error 'unsafe-null.m' "main() { int? a = null`nprint(a) }" 'ML3018'

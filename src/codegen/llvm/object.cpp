@@ -122,6 +122,7 @@ private:
     }
 
     LLVMTypeRef type(Type valueType) const {
+        if (stringListDepth(valueType)) return LLVMPointerTypeInContext(context_, 0);
         if (structureType(valueType)) {
             return referenceType(valueType) ? LLVMPointerTypeInContext(context_, 0) : layout(valueType);
         }
@@ -194,13 +195,17 @@ private:
     }
 
     LLVMValueRef allocate(Type valueType, const char* name) {
+        return allocate(type(valueType), name);
+    }
+
+    LLVMValueRef allocate(LLVMTypeRef valueType, const char* name) {
         // Allocate once per call even when the declaration executes in a loop.
         if (const auto first = LLVMGetFirstInstruction(entry_)) {
             LLVMPositionBuilderBefore(slotBuilder_.get(), first);
         } else {
             LLVMPositionBuilderAtEnd(slotBuilder_.get(), entry_);
         }
-        return LLVMBuildAlloca(slotBuilder_.get(), type(valueType), name);
+        return LLVMBuildAlloca(slotBuilder_.get(), valueType, name);
     }
 
     LLVMValueRef declare(const std::string& name, Type valueType, LLVMValueRef value) {
@@ -290,9 +295,21 @@ private:
             if (terminated()) break;
             switch (statement.kind) {
             case StatementKind::print: {
-                const auto value = expression(*statement.value);
-                errorSite(statement.location);
-                print(statement.value->type, value);
+                std::vector<LLVMValueRef> values;
+                for (const auto& argument : statement.arguments) values.push_back(expression(*argument));
+                if (statement.format) {
+                    formattedOutput(values.front(), *statement.format);
+                } else {
+                    errorSite(statement.location);
+                    for (std::size_t i = 0; i < values.size(); ++i) {
+                        if (i) output(stringLiteral(" "));
+                        const auto outputType = statement.arguments[i]->type;
+                        if (stringListDepth(outputType)) call("moulang_list_print", type(Type::none), {values[i]});
+                        else output(scalarText(outputType, values[i]));
+                    }
+                }
+                call("moulang_newline", type(Type::none), {});
+                for (const auto& target : statement.inputTargets) emitInput(target);
                 break;
             }
             case StatementKind::declaration:
@@ -302,11 +319,24 @@ private:
                 LLVMBuildStore(builder_, convert(*statement.value, statement.type), locals_.at(statement.name));
                 break;
             case StatementKind::fieldAssignment: {
+                const auto& target = *statement.target;
+                if (target.kind == ExpressionKind::subscript && stringListDepth(target.left->type)) {
+                    const auto list = expression(*target.left);
+                    const auto index = expression(*target.right);
+                    const auto value = expression(*statement.value);
+                    const auto item = listItem(value, statement.type);
+                    errorSite(target.location);
+                    call("moulang_list_set", type(Type::none), {list, index, field(item, 0), field(item, 1)});
+                    break;
+                }
                 const auto destination = address(*statement.target);
                 LLVMBuildStore(builder_, convert(*statement.value, statement.type), destination);
                 break;
             }
-            case StatementKind::call: expression(*statement.value); break;
+            case StatementKind::call:
+                expression(*statement.value);
+                if (statement.postMutation) emitScoped(statement.body);
+                break;
             case StatementKind::returnValue:
                 if (statement.value) LLVMBuildRet(builder_, convert(*statement.value, statement.type));
                 else LLVMBuildRetVoid(builder_);
@@ -321,8 +351,7 @@ private:
         }
     }
 
-    LLVMValueRef call(const char* name, LLVMTypeRef result, std::initializer_list<LLVMValueRef> arguments) {
-        std::vector<LLVMValueRef> args(arguments);
+    LLVMValueRef call(const char* name, LLVMTypeRef result, std::vector<LLVMValueRef> args) {
         std::vector<LLVMTypeRef> types;
         for (auto arg : args) types.push_back(LLVMTypeOf(arg));
         const auto count = static_cast<unsigned>(args.size());
@@ -345,6 +374,18 @@ private:
 
     LLVMValueRef field(LLVMValueRef aggregate, unsigned index) {
         return LLVMBuildExtractValue(builder_, aggregate, index, "");
+    }
+
+    LLVMValueRef textPair(LLVMValueRef data, LLVMValueRef length) {
+        const auto pair = LLVMBuildInsertValue(builder_, LLVMGetUndef(string_), data, 0, "");
+        return LLVMBuildInsertValue(builder_, pair, length, 1, "");
+    }
+
+    LLVMValueRef textResult(const char* name, std::vector<LLVMValueRef> arguments) {
+        const auto slot = allocate(Type::string, "text.result");
+        arguments.push_back(slot);
+        call(name, type(Type::none), std::move(arguments));
+        return LLVMBuildLoad2(builder_, string_, slot, "");
     }
 
     void errorSite(Location location) {
@@ -384,7 +425,8 @@ private:
         if (expr.type == Type::none) {
             const auto text = expression(*expr.arguments[1]);
             errorSite(expr.location);
-            return call("moulang_write_text", none, {field(path, 0), field(path, 1), field(text, 0), field(text, 1)});
+            return call(expr.text == "AText" ? "moulang_append_text" : "moulang_write_text", none,
+                {field(path, 0), field(path, 1), field(text, 0), field(text, 1)});
         }
         const auto result = allocate(Type::string, "read.text");
         const auto data = LLVMBuildStructGEP2(builder_, string_, result, 0, "");
@@ -468,19 +510,122 @@ private:
         return LLVMBuildInsertValue(builder_, extended, length, 1, "");
     }
 
-    void print(Type type, LLVMValueRef value) {
-        const auto none = LLVMVoidTypeInContext(context_);
-        if (type == Type::string) {
-            call("moulang_print", none, {LLVMBuildExtractValue(builder_, value, 0, ""),
-                LLVMBuildExtractValue(builder_, value, 1, "")});
-        } else if (type == Type::boolean) {
-            call("moulang_print_bool", none, {LLVMBuildZExt(builder_, value, integer_, "")});
-        } else if (realType(type)) {
-            const auto name = type == Type::float32 ? "moulang_print_float" : "moulang_print_double";
-            call(name, none, {value});
-        } else {
-            if (type == Type::longInt) call("moulang_print_long", none, {value});
-            else call("moulang_print_int", none, {numericCast(value, type, Type::integer)});
+    void output(LLVMValueRef text) {
+        call("moulang_output", type(Type::none), {field(text, 0), field(text, 1)});
+    }
+
+    LLVMValueRef scalarText(Type valueType, LLVMValueRef value) {
+        if (valueType == Type::string) return value;
+        if (valueType == Type::boolean) {
+            const auto yes = stringLiteral("true");
+            const auto no = stringLiteral("false");
+            return textPair(LLVMBuildSelect(builder_, value, field(yes, 0), field(no, 0), ""),
+                LLVMBuildSelect(builder_, value, field(yes, 1), field(no, 1), ""));
+        }
+        const auto buffer = allocate(LLVMArrayType2(LLVMInt8TypeInContext(context_), 32), "scalar.text");
+        const auto render = valueType == Type::float32 ? "moulang_render_float" :
+            valueType == Type::float64 ? "moulang_render_double" : "moulang_render_long";
+        if (!realType(valueType)) value = numericCast(value, valueType, Type::longInt);
+        const auto length = call(render, integer_, {value, buffer});
+        return textPair(buffer, length);
+    }
+
+    LLVMValueRef listItem(LLVMValueRef value, Type itemType) {
+        return itemType == Type::string ? value : textPair(value, LLVMConstNull(integer_));
+    }
+
+    LLVMValueRef listResult(const char* symbol, std::vector<LLVMValueRef> args, Type resultType) {
+        const auto item = textResult(symbol, std::move(args));
+        return resultType == Type::string ? item : field(item, 0);
+    }
+
+    LLVMValueRef listLiteral(const Expression& expr) {
+        errorSite(expr.location);
+        const auto list = call("moulang_list_new", type(expr.type),
+            {LLVMConstInt(integer_, expr.arguments.size(), false),
+             LLVMConstInt(integer_, stringListDepth(expr.type), false)});
+        for (const auto& argument : expr.arguments) {
+            const auto item = listItem(expression(*argument), argument->type);
+            errorSite(argument->location);
+            call("moulang_list_append", type(Type::none), {list, field(item, 0), field(item, 1)});
+        }
+        return list;
+    }
+
+    LLVMValueRef listMethod(const Expression& expr) {
+        std::vector<LLVMValueRef> args{expression(*expr.left)};
+        if (expr.text == "insert") args.push_back(expression(*expr.arguments.front()));
+        if (!expr.arguments.empty()) {
+            const auto& argument = *expr.arguments.back();
+            const auto item = listItem(expression(argument), argument.type);
+            args.push_back(field(item, 0));
+            args.push_back(field(item, 1));
+        }
+        errorSite(expr.location);
+        if (expr.text == "pop") return listResult("moulang_list_pop", std::move(args), expr.type);
+        const auto symbol = "moulang_list_" + expr.text;
+        return call(symbol.c_str(), type(Type::none), std::move(args));
+    }
+
+    void formattedOutput(LLVMValueRef pattern, const Expression& format) {
+        const auto count = format.arguments.size();
+        auto values = allocate(LLVMArrayType2(type(Type::string), count), "format.values");
+        for (std::size_t i = 0; i < count; ++i) {
+            const auto& argument = *format.arguments[i];
+            const auto rendered = scalarText(argument.type, expression(argument));
+            auto index = LLVMConstInt(integer_, i, false);
+            const auto slot = LLVMBuildGEP2(builder_, type(Type::string), values, &index, 1, "");
+            LLVMBuildStore(builder_, rendered, slot);
+        }
+        errorSite(format.location);
+        call("moulang_format_output", type(Type::none), {field(pattern, 0), field(pattern, 1), values,
+            LLVMConstInt(integer_, count, false)});
+    }
+
+    void emitInput(const Expression& target) {
+        errorSite(target.location);
+        const auto valueType = target.type;
+        const auto line = textResult("moulang_read_line", {LLVMConstInt(integer_, valueType == Type::string, false)});
+        const auto data = field(line, 0);
+        const auto length = field(line, 1);
+        LLVMValueRef value = line;
+        if (realType(valueType)) {
+            value = call(valueType == Type::float32 ? "moulang_input_float" : "moulang_input_double",
+                type(valueType), {data, length});
+        } else if (valueType == Type::boolean) {
+            value = call("moulang_input_bool", integer_, {data, length});
+            value = LLVMBuildTrunc(builder_, value, type(valueType), "");
+        } else if (numericType(valueType)) {
+            const auto width = LLVMConstInt(integer_, LLVMGetIntTypeWidth(type(valueType)), false);
+            value = call("moulang_input_integer", type(Type::longInt), {data, length, width});
+            value = LLVMBuildIntCast2(builder_, value, type(valueType), true, "");
+        }
+        LLVMBuildStore(builder_, value, locals_.at(target.text));
+    }
+
+    std::string typeLabel(Type valueType) const {
+        if (const auto depth = stringListDepth(valueType)) {
+            std::string name = "str";
+            for (unsigned i = 0; i < depth; ++i) name += "[]";
+            return name;
+        }
+        if (const auto base = nullableBase(valueType); base != Type::inferred) return typeLabel(base) + "?";
+        if (structureType(valueType)) return structures_.at(valueType).declaration.name;
+        if (fixedIntArrayType(valueType)) return "int[" + std::to_string(fixedIntArrayLength(valueType)) + "]";
+        switch (valueType) {
+        case Type::byte: return "char";
+        case Type::shortInt: return "short";
+        case Type::integer: return "int";
+        case Type::longInt: return "long";
+        case Type::float32: return "float";
+        case Type::float64: return "double";
+        case Type::boolean: return "bool";
+        case Type::string: return "str";
+        case Type::nullValue: return "null";
+        case Type::intSlice: return "int[]";
+        case Type::intView:
+        case Type::borrowedIntView: return "int view";
+        default: throw std::logic_error("Unresolved type query.");
         }
     }
 
@@ -540,6 +685,12 @@ private:
             return LLVMBuildAShr(builder_, left, offset, "");
         }
         if (expr.left->type == Type::string) {
+            if (op == "+" || op == "*") {
+                errorSite(expr.location);
+                if (op == "+") return textResult("moulang_text_concat",
+                    {field(left, 0), field(left, 1), field(right, 0), field(right, 1)});
+                return textResult("moulang_text_repeat", {field(left, 0), field(left, 1), right});
+            }
             const auto equal = call("moulang_string_equal", integer_,
                 {field(left, 0), field(left, 1), field(right, 0), field(right, 1)});
             const auto predicate = op == "==" ? LLVMIntNE : LLVMIntEQ;
@@ -610,6 +761,7 @@ private:
             return stored == type(expr.type) ? value : field(value, 1);
         }
         case ExpressionKind::slice: {
+            if (stringListDepth(expr.type)) return listLiteral(expr);
             if (fixedIntArrayType(expr.type)) {
                 auto value = LLVMGetUndef(type(expr.type));
                 for (unsigned i = 0; i < expr.arguments.size(); ++i) {
@@ -630,10 +782,24 @@ private:
             const auto slice = asCollection(*expr.left);
             const auto index = expression(*expr.right);
             errorSite(expr.location);
+            if (expr.left->type == Type::string) {
+                return textResult("moulang_text_index", {field(slice, 0), field(slice, 1), index});
+            }
+            if (stringListDepth(expr.left->type)) {
+                return listResult("moulang_list_get", {slice, index}, expr.type);
+            }
             return collectionGet(expr.left->type, slice, index);
         }
         case ExpressionKind::view: {
             const auto source = asCollection(*expr.left);
+            if (expr.left->type == Type::string) {
+                const auto begin = expr.right ? expression(*expr.right) : LLVMConstNull(integer_);
+                const auto end = expr.alternative ? expression(*expr.alternative) : LLVMConstNull(integer_);
+                const auto step = expr.step ? expression(*expr.step) : LLVMConstInt(integer_, 1, false);
+                const auto flags = LLVMConstInt(integer_, (expr.right ? 1 : 0) | (expr.alternative ? 2 : 0), false);
+                errorSite(expr.location);
+                return textResult("moulang_text_slice", {field(source, 0), field(source, 1), begin, end, step, flags});
+            }
             const auto begin = expression(*expr.right);
             const auto end = expression(*expr.alternative);
             errorSite(expr.location);
@@ -656,6 +822,7 @@ private:
             }, [&] { return LLVMConstNull(resultType); });
         }
         case ExpressionKind::methodCall: {
+            if (stringListDepth(expr.left->type)) return listMethod(expr);
             const auto& function = functions_.at(expr.functionIndex);
             std::vector<LLVMValueRef> args{expression(*expr.left)};
             appendArguments(expr, function.declaration, args);
@@ -688,7 +855,9 @@ private:
             return object;
         }
         case ExpressionKind::call: {
-            if (expr.text == "readText" || expr.text == "writeText") return textFile(expr);
+            if (expr.text == "type") return stringLiteral(typeLabel(expr.operandType));
+            if (expr.text == "len") return call("moulang_list_len", integer_, {expression(*expr.arguments.front())});
+            if (expr.text == "readText" || expr.text == "writeText" || expr.text == "AText") return textFile(expr);
             if (numericType(namedType(expr.text))) {
                 const auto& argument = *expr.arguments[0];
                 const auto value = expression(argument);

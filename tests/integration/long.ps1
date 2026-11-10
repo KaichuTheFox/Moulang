@@ -81,7 +81,7 @@ try {
         'import "library.m"' + "`n" + 'main() { print(imported(true)) }', $utf8)
     $hidden = Invoke-Test $Compiler @('check','hidden.m')
     if ($hidden.Code -ne 1 -or $hidden.Text -notmatch 'ML3011') { throw 'Private overload leaked across a module boundary.' }
-    [IO.File]::WriteAllText((Join-Path $work 'other.m'), 'int imported(string x) { return 4 }', $utf8)
+    [IO.File]::WriteAllText((Join-Path $work 'other.m'), 'int imported(str x) { return 4 }', $utf8)
     [IO.File]::WriteAllText((Join-Path $work 'conflict.m'),
         'import "library.m"' + "`n" + 'import "other.m"' + "`nmain() {}", $utf8)
     $conflict = Invoke-Test $Compiler @('check','conflict.m')

@@ -3,5 +3,10 @@
     "prefix": "main",
     "body": ["main() {", "\t$0", "}"],
     "description": "Create a Moulang entry point"
+  },
+  "String variable": {
+    "prefix": "str",
+    "body": ["str ${1:name} = \"${2:text}\""],
+    "description": "Declare a UTF-8 string"
   }
 }

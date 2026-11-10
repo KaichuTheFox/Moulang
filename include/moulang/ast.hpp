@@ -28,6 +28,7 @@ struct Expression {
     std::size_t functionIndex = noFunction;
     std::string borrowOwner{};
     Type memberOwner = Type::none;
+    std::unique_ptr<Expression> step{};
 };
 
 enum class StatementKind { print, declaration, assignment, fieldAssignment, call, returnValue, branch,
@@ -43,6 +44,10 @@ struct Statement {
     std::vector<Statement> alternative{};
     std::unique_ptr<Expression> bound{};
     std::unique_ptr<Expression> target{};
+    std::vector<std::unique_ptr<Expression>> arguments{};
+    std::unique_ptr<Expression> format{};
+    std::vector<Expression> inputTargets{};
+    bool postMutation = false;
 };
 
 struct TypedName {

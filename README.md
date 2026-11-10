@@ -8,9 +8,9 @@ Moulang is a statically typed programming language from the HAZOS development te
 
 **Currently Windows x64 only.** Linux portability is a [design proposal](docs/PLATFORM_DESIGN.md); no Linux implementation has been validated.
 
-Moulang 0.2.0 is the Windows x64 preview release. It includes string escapes, signed 64-bit long and ordinary function overloads. See the [release notes](docs/RELEASE_NOTES_0.2.0.md) for compatibility changes and remaining limitations.
+Moulang 0.3.0 is a Windows x64 preview with `str`, print blocks, string lists, and UTF-8 append. See the [release notes](docs/RELEASE_NOTES_0.3.0.md) for migration from 0.2.0 and current limitations.
 
-1. Download the [compiler ZIP](https://github.com/KaichuTheFox/Moulang/releases/download/v0.2.0/moulang-windows-x64.zip) and [SHA-256 file](https://github.com/KaichuTheFox/Moulang/releases/download/v0.2.0/moulang-windows-x64.zip.sha256) from [Release v0.2.0](https://github.com/KaichuTheFox/Moulang/releases/tag/v0.2.0). Compare `Get-FileHash .\moulang-windows-x64.zip -Algorithm SHA256` with the checksum file, then extract the whole ZIP, for example to `C:\Moulang`.
+1. Download the [compiler ZIP](https://github.com/KaichuTheFox/Moulang/releases/download/v0.3.0/moulang-windows-x64.zip) and [SHA-256 file](https://github.com/KaichuTheFox/Moulang/releases/download/v0.3.0/moulang-windows-x64.zip.sha256) from [Release v0.3.0](https://github.com/KaichuTheFox/Moulang/releases/tag/v0.3.0). Compare `Get-FileHash .\moulang-windows-x64.zip -Algorithm SHA256` with the checksum file, then extract the whole ZIP, for example to `C:\Moulang`.
 2. Add its `bin` folder to your Windows user `PATH`, reopen the terminal, and run `moulang --version`. Keep `bin/toolchain` and its notices alongside the compiler.
 3. In VS Code, run **Extensions: Install from VSIX** and select the included VSIX. Set `moulang.executablePath` to `C:\Moulang\bin\moulang.exe` if that is your extraction location. Open your source project folder, create and save a `.m` file inside it, then click the play button. Compiler and source folders may be different.
 
@@ -82,7 +82,7 @@ main() {
 
 Moulang also supports value structs, nullable values, and relative imports. Classes, fixed integer arrays, and local view checks have limited implementations. See the [language specification](docs/LANGUAGE_SPEC.md) and [implementation status](docs/IMPLEMENTATION_STATUS.md) for details.
 
-Current source builds support string escapes, including UTF-8 Unicode scalar escapes and embedded NUL:
+Moulang 0.3.0 uses `str` for UTF-8 text. Rename explicit `string` declarations when upgrading from 0.2.0. Both versions support Unicode scalar escapes and embedded NUL.
 
 ```moulang
 main() {
@@ -93,6 +93,10 @@ main() {
 ```
 
 Use `\\` for a literal backslash, or `/` in file paths. Unknown escapes and invalid decoded UTF-8 are compile errors. These rules are included in compiler 0.2.0; older development archives may predate them. See the [string rules](docs/LANGUAGE_SPEC.md#string-escapes).
+
+The current source build adds Unicode code point indexing and slicing, `type()`, and multi-argument output. Run [the text example](examples/text.m) to try them. The [print block specification](docs/LANGUAGE_SPEC.md#print-blocks) also includes an interactive example with `format()` and `input()`.
+
+Try the [string list example](examples/lists.m) for `str[]` methods and ragged `str[][]` tables. The current source also supports `RText` and `WText` aliases and `AText` for appending UTF-8. See [file I/O](docs/LANGUAGE_SPEC.md#imports-and-file-io).
 
 ## Visual Studio Code
 
@@ -111,7 +115,7 @@ In VS Code, select **Extensions > Install from VSIX** and open that package. Ope
 
 Open a saved `.m` file and click the play button in the upper right of the editor. The **Moulang: Run Current File** command in the Command Palette does the same thing. The extension saves edits before running. Output appears in the terminal and compiler errors appear in **Problems**. **Moulang: Live Diagnostics** checks unsaved changes in a trusted workspace.
 
-The display name is **Moulang for VS Code** and the identity is `KaichuTheFox.moulang`. The bundled extension 0.1.5 is tested with compiler 0.2.0; existing extension 0.1.4 can also invoke this compiler by updating its executable path. Extension 0.1.5 is included as a VSIX; publishing it to the Marketplace is a separate step. When the compiler cannot be found, **Open Settings** opens `moulang.executablePath` directly. See the [extension testing guide](tests/vscode/README.md).
+The display name is **Moulang for VS Code** and the identity is `KaichuTheFox.moulang`. The 0.3.0 compiler kit bundles extension 0.1.6 with highlighting and completion for the new syntax. When the compiler cannot be found, **Open Settings** opens `moulang.executablePath` directly. See the [extension testing guide](tests/vscode/README.md).
 
 To load the extension from source, run this from the repository root:
 

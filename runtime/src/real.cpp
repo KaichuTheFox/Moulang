@@ -2,10 +2,11 @@
 
 #include <bit>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <limits>
+#include <string_view>
 
-extern "C" void moulang_print(const char* text, int length);
 extern "C" [[noreturn]] void moulang_runtime_error(const char* message, int length);
 
 namespace {
@@ -14,21 +15,66 @@ template <std::size_t size>
     moulang_runtime_error(message, static_cast<int>(size - 1));
 }
 
-template<class Real>
-void printReal(Real value) {
-    char buffer[32];
-    const auto result = std::to_chars(buffer, buffer + sizeof(buffer), value);
+template<class Number>
+int renderNumber(Number value, char* buffer) {
+    const auto result = std::to_chars(buffer, buffer + 32, value);
     if (result.ec != std::errc{}) numericError("Moulang runtime: cannot format a real value.\r\n");
-    moulang_print(buffer, static_cast<int>(result.ptr - buffer));
+    return static_cast<int>(result.ptr - buffer);
+}
+
+std::string_view trimInput(std::string_view text) {
+    const auto start = text.find_first_not_of(" \t");
+    if (start == std::string_view::npos) return text.substr(text.size());
+    return text.substr(start, text.find_last_not_of(" \t") - start + 1);
+}
+
+template<class Number>
+Number parseNumber(const char* data, int length) {
+    auto text = trimInput({data, static_cast<std::size_t>(length)});
+    if (text.starts_with('+')) {
+        text.remove_prefix(1);
+        if (text.starts_with('-')) text = text.substr(text.size());
+    }
+    Number value{};
+    const auto end = text.data() + text.size();
+    const auto result = std::from_chars(text.data(), end, value);
+    if (result.ec != std::errc{} || result.ptr != end || !std::isfinite(value)) {
+        numericError("Moulang runtime: invalid or out-of-range numeric input.\r\n");
+    }
+    return value;
 }
 }
 
-extern "C" void moulang_print_float(float value) {
-    printReal(value);
+extern "C" std::int64_t moulang_input_integer(const char* data, int length, int width) {
+    const auto value = parseNumber<std::int64_t>(data, length);
+    if ((width == 8 && (value < 0 || value > 255)) ||
+        (width == 16 && (value < -32768 || value > 32767)) ||
+        (width == 32 && (value < INT32_MIN || value > INT32_MAX))) {
+        numericError("Moulang runtime: numeric input is outside the variable's range.\r\n");
+    }
+    return value;
 }
 
-extern "C" void moulang_print_double(double value) {
-    printReal(value);
+extern "C" float moulang_input_float(const char* data, int length) { return parseNumber<float>(data, length); }
+extern "C" double moulang_input_double(const char* data, int length) { return parseNumber<double>(data, length); }
+
+extern "C" int moulang_input_bool(const char* data, int length) {
+    const auto value = trimInput({data, static_cast<std::size_t>(length)});
+    if (value == "true") return 1;
+    if (value == "false") return 0;
+    numericError("Moulang runtime: bool input must be true or false.\r\n");
+}
+
+extern "C" int moulang_render_long(std::int64_t value, char* buffer) {
+    return renderNumber(value, buffer);
+}
+
+extern "C" int moulang_render_float(float value, char* buffer) {
+    return renderNumber(value, buffer);
+}
+
+extern "C" int moulang_render_double(double value, char* buffer) {
+    return renderNumber(value, buffer);
 }
 
 extern "C" float moulang_narrow_real(double value) {

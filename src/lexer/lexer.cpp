@@ -1,6 +1,7 @@
 #include "moulang/lexer.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <utility>
 
 namespace moulang {
@@ -11,6 +12,18 @@ bool identifierStart(char c) {
 
 bool identifierPart(char c) {
     return identifierStart(c) || (c >= '0' && c <= '9');
+}
+
+bool hangul(std::string_view source) {
+    if (source.size() < 3) return false;
+    const auto first = static_cast<unsigned char>(source[0]);
+    const auto second = static_cast<unsigned char>(source[1]);
+    const auto third = static_cast<unsigned char>(source[2]);
+    if ((first & 0xf0) != 0xe0 || (second & 0xc0) != 0x80 || (third & 0xc0) != 0x80) return false;
+    const unsigned point = ((first & 0xf) << 12) | ((second & 0x3f) << 6) | (third & 0x3f);
+    return (point >= 0x1100 && point <= 0x11ff) || (point >= 0x3131 && point <= 0x318e) ||
+        (point >= 0xa960 && point <= 0xa97c) || (point >= 0xac00 && point <= 0xd7a3) ||
+        (point >= 0xd7b0 && point <= 0xd7c6) || (point >= 0xd7cb && point <= 0xd7fb);
 }
 
 bool digit(char c) {
@@ -186,6 +199,24 @@ Token Lexer::next() {
                 }
                 continue;
             }
+            if (offset_ < source_.size() && source_[offset_] == '*') {
+                advance();
+                std::optional<Location> newline;
+                bool closed = false;
+                while (offset_ < source_.size()) {
+                    const auto position = location_;
+                    const char next = advance();
+                    if (next == '*' && offset_ < source_.size() && source_[offset_] == '/') {
+                        advance();
+                        closed = true;
+                        break;
+                    }
+                    if (!newline && (next == '\n' || next == '\r')) newline = position;
+                }
+                if (!closed) throw Diagnostic(start, "ML1006", "Unterminated block comment.");
+                if (newline) return {TokenKind::newline, *newline, {}};
+                continue;
+            }
             break;
         }
         if (digit(c)) {
@@ -220,9 +251,19 @@ Token Lexer::next() {
             }
             return {TokenKind::operation, start, std::string(source_.substr(begin, offset_ - begin))};
         }
-        if (identifierStart(c)) {
-            while (offset_ < source_.size() && identifierPart(source_[offset_])) {
+        const bool hangulStart = hangul(source_.substr(begin));
+        if (identifierStart(c) || hangulStart) {
+            if (hangulStart) {
                 advance();
+                advance();
+            }
+            while (offset_ < source_.size()) {
+                if (identifierPart(source_[offset_])) advance();
+                else if (hangul(source_.substr(offset_))) {
+                    advance();
+                    advance();
+                    advance();
+                } else break;
             }
             return {TokenKind::identifier, start, std::string(source_.substr(begin, offset_ - begin))};
         }

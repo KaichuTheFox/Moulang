@@ -1,6 +1,28 @@
 # Implementation status
 
-Compiler 0.2.0 preview packages the implemented string/long/overload rules and extension 0.1.5. The owner completed the repository rename. Main-branch CI for commit dce376b passed build and installation verification; the 0.2.0 tagged workflow must pass again before publication. See [0.2.0 release notes](RELEASE_NOTES_0.2.0.md). Earlier dated checkpoints below describe their original development versions.
+## Unreleased language expansion
+
+The current source implements `str`, string concatenation and repetition, Unicode code point indexing and slicing, multi-argument output, static `type()`, block comments, and Hangul identifiers. The [language specification](LANGUAGE_SPEC.md) defines their current source semantics. The published 0.2.0 preview remains a separate checkpoint.
+
+Print blocks support checked brace formatting and Unicode line input into scalar variables. The integration suite exercises prompt ordering, redirected UTF-8, typed conversion, and malformed input and templates.
+
+String lists share their identity across assignment and function calls. Their tests cover mutations and post-mutation blocks, escaping in list output, bounds and method errors, and the original standalone integer-slice append.
+
+Nested string lists support ragged rows, child list access and replacement, and recursive rendering. Mixed-element lists remain a [design proposal](MIXED_LIST_DESIGN.md).
+
+`RText()` and `WText()` use the existing read and replace operations. `AText()` uses Windows append access and accepts UTF-8 paths and data.
+
+Local Windows x64 validation passed 16 Release and 13 Debug CTest entries. The VS Code unit suite, repository-link check, and isolated VS Code 1.144.0 source and installed-VSIX suites passed. The input tests use redirected UTF-8. Manual Unicode keyboard entry in a Windows terminal and clean Windows 10/11 installation remain release checks.
+
+### Baseline audit before the language expansion
+
+- Implemented. The lexer, semantic analyzer, LLVM emitter, and runtime supported UTF-8 literals with escapes and embedded NUL, the `string` type, byte-exact equality, single-argument scalar output, line comments, and `readText()` / `writeText()`. The extension highlighted the original spelling and supported compiler diagnostics.
+- Partially implemented. Integer slices, fixed arrays, range views, and standalone `append(slice, value)` existed. The string operators, string lists, and the list method family were absent. String UTF-8 handling did not extend to identifiers, and comments were limited to one line.
+- Missing. The `str` spelling, multi-argument output, static `type()`, nested or mixed lists, print-block input and formatting, and the short file operation names had no parser and runtime support.
+
+## Earlier checkpoints
+
+The published compiler 0.2.0 preview packages the original string spelling, long and overload rules, and extension 0.1.5. See the [0.2.0 release notes](RELEASE_NOTES_0.2.0.md). Earlier dated checkpoints below describe their original development versions.
 
 Stage 6 implements the approved R2/P1/O1 rules: signed 64-bit long, checked long-to-int narrowing, explicit long/real mixing and ordinary same-file function overloads. Debug passes eight CTest entries. The new long suite covers boundaries, runtime sites, ABI flows and optimization levels.
 

@@ -9,10 +9,40 @@ The implemented target is Windows x64. The [platform isolation proposal](PLATFOR
 - The VS Code integration invokes `moulang run` with the active saved file as a separate process argument. Extension packaging and executable discovery do not change source syntax or evaluation rules. See the [extension test guide](../tests/vscode/README.md).
 - Repository URL changes are documented in the [rename checklist](REPOSITORY_RENAME.md). They preserve `.m`, the compiler commands, and all existing language semantics.
 - Compiler bundles resolve link tools relative to the executable. Keep the whole bundle and its third-party notices together. The approved Windows 10/11 x64 kit uses a separately compiled LLVM-MinGW runtime and produces single executables with Windows system DLL imports.
-- Release packages preserve the same `.m` entry point and language rules as source builds. Package hash checks and hosted installation checks are deployment validation, not additional syntax or a promise of support on an untested Windows version.
+- This specification describes the current source tree. The published 0.2.0 preview uses `string` where the current source uses `str`. See the [release notes](RELEASE_NOTES_0.2.0.md) for the preview's language rules.
 - An executable has exactly one parameterless main() or void main(). Normal completion returns exit code 0.
-- Braces delimit blocks. Separate statements in the same block with newlines. Inside parentheses, line breaks may separate tokens. A double slash starts a comment that ends at the next line break.
-- Strings are double-quoted UTF-8 text, including empty strings. Literal CR, LF, and raw NUL are forbidden inside a quoted source string. Escaped control characters are supported under the rules below. print(value) writes a numeric, bool, or string value followed by a newline.
+- Braces delimit blocks. Separate statements in the same block with newlines. Inside parentheses, line breaks may separate tokens. A double slash starts a comment that ends at the next line break. `/* ... */` comments may span lines and do not nest. Line breaks inside a block comment can separate statements. An unclosed comment reports ML1006 at the opening delimiter. Quotes protect comment markers inside string literals.
+- Identifiers start with an ASCII letter, underscore, or Hangul letter and may continue with those characters or ASCII digits. Hangul syllables and Jamo are supported. The compiler validates UTF-8 and compares names without normalization.
+- Strings are double-quoted UTF-8 text of type `str`, including empty strings. The old type spelling `string` reports ML2002. Literal CR, LF, and raw NUL are forbidden inside a quoted source string. Escaped control characters are supported under the rules below.
+
+## String expressions and output
+
+- `a + b` concatenates two strings. `s * n` repeats a string an `int` number of times. Zero repetitions produce an empty string. Negative repetition counts, byte lengths beyond the signed 32-bit limit, and exhaustion of the dynamic storage budget produce runtime errors.
+- `s[i]` returns one Unicode code point as a `str`. A negative index counts from the end. An index outside the string terminates with a runtime error.
+- `s[start:end:step]` takes a half-open slice in code points. Start and end may be omitted. Omitting the second colon and step selects a step of one. Negative bounds count from the end and outlying bounds clamp to the appropriate edge. A negative step traverses backward, with omitted start at the last code point and omitted end before the first. A zero step is a runtime error. These operations can split combining-character sequences.
+- Strings are immutable. Indexing and contiguous slicing can share the original bytes. New string-expression storage is retained until process exit and limited to 256 MiB per process.
+- `print(a, b, c)` evaluates arguments left to right before writing the line. It renders numeric, bool, and string values separated by one space, then writes a newline. It requires at least one argument.
+- `type(expr)` checks exactly one expression and returns its static type name as a `str`. The argument has no runtime evaluation. Type names cover built-ins, nullable types, nominal types, and existing integer collections.
+
+## Print blocks
+
+```m
+main() {
+    str name = "Sam"
+    int score = 0
+    print("{}'s score?") {
+        format(name)
+        input(score)
+    }
+    print(name, score)
+}
+```
+
+- A print block contains at most one `format(...)`, followed by zero or more `input(variable)` items. Put the opening brace on the same line as the print call and separate block items with newlines. The built-in block items are available only in this block. Their spellings remain available to user declarations.
+- Formatting takes one `str` template in the print call. Each `{}` consumes the next scalar argument. Use `{{` for a literal opening brace and `}}` for a literal closing brace. Unmatched braces and too few or too many arguments cause runtime errors before any template text is written. Without a format item, braces in text print literally.
+- Evaluate the print arguments first, then the format arguments from left to right. Side effects of these expressions occur before template validation and are retained on error. The print statement writes the complete line and its final newline before the first input item executes.
+- Each input item reads a line and assigns it to an existing local variable or parameter of non-nullable type `str`, `bool`, or a numeric type. Windows console input uses Unicode. Redirected input must be UTF-8. The line terminator is removed, and a nonempty last line may end at EOF without a newline. Lines may contain at most 1 MiB of UTF-8 data. Reading with no data left produces a runtime error.
+- String input preserves the line's other bytes, including spaces and NUL. Numeric and bool input ignore leading and trailing ASCII spaces and tabs. Integers use decimal notation, reals allow decimal exponents, and bool accepts `true` or `false`. Invalid, out-of-range, and non-finite numbers are runtime errors. Each successful input assignment takes effect before the next item.
 
 ## String escapes
 
@@ -29,7 +59,7 @@ The implemented target is Windows x64. The [platform isolation proposal](PLATFOR
 - Numeric types are char (unsigned 8-bit), short (signed 16-bit), int (signed 32-bit), long (signed 64-bit), float (32-bit), and double (64-bit). Signed integer literals fitting int have type int; other signed 64-bit literals have type long. Larger values are compile errors. Unary-minus literals include INT_MIN and LONG_MIN. Real literals are double. char(65) prints byte value 65.
 - Arithmetic and comparison use the operand type when both types match or a common type that preserves both operands' values. The common type for float and int is double. Numeric locals support compound assignment and postfix ++ and -- as statements. String equality compares UTF-8 bytes. Boolean values print as true or false.
 - Integer arithmetic wraps at the type's width. Integer division truncates toward zero. Dividing an integer by zero terminates with a runtime error. Floating-point arithmetic follows IEEE 754.
-- Implicit numeric conversions in assignment, arguments, and return values must preserve all source values and their precision. A short converts implicitly to float. Use float(value) for an int.
+- Implicit numeric conversions in assignment, arguments, and return values must preserve all source values and their precision. A short converts implicitly to float. Use float(value) for an int. A real literal used to initialize or assign a float is accepted when the literal's double value is exactly representable as float, for example `float b = 2.5`.
 - int widens implicitly to long. long-to-int conversion requires int(value) and raises a runtime error outside INT_MIN through INT_MAX (approved R2). Other explicit integer conversions preserve low bits. Real-to-integer conversion rounds to nearest, ties to even, then preserves low bits at the destination width. NaN, infinity, and finite double-to-float overflow are runtime errors.
 - A general long cannot convert implicitly to float or double. Mixed long/real arithmetic, comparisons, and conditional branches require an explicit conversion (approved P1). Mixed integer arithmetic uses the wider lossless integer type. Same-type small integer arithmetic retains its width. Thus 2147483648 is a long literal, while 2147483647 + 1 wraps as int. LONG_MIN / -1 wraps to LONG_MIN; long shifts validate the full count before narrowing it.
 - Integer bitwise operators are ~, &, ^, |, <<, and >>. A shift uses the left operand's width and rejects negative counts and counts at least that width. Signed right shifts preserve the sign bit.
@@ -53,11 +83,27 @@ The [diagnostic presentation proposals](DIAGNOSTIC_PROPOSALS.md) do not alter la
 - Types are non-nullable by default. T? allows null for supported scalar types, structs, and classes. nickname ?? "Unknown" evaluates the fallback only for null. Direct assignment or comparisons with null can establish that a value is present in a local scope. Reassignment and control flow can change this result.
 - pos?.x returns null for a null receiver and reads the field otherwise. Nullable class receivers also support safe method calls. A null check that establishes a struct value is present allows direct field access.
 
+## String lists
+
+- Declare `str[] songs = ["A", "B"]` or infer the same type with `var songs = ["A", "B"]`. Use an explicit list type for an empty initializer. An untyped `[]` remains an empty integer slice.
+- Lists are references. Assignment, parameter passing, and returns share the list object. Mutation through any alias changes the shared list. Reassigning a variable to a different list changes that variable's binding.
+- `songs[i]` reads or writes one element. Indices have type `int`, start at zero, and accept negative offsets from the end. An out-of-bounds read or write is a runtime error. Indexed assignment evaluates the receiver, index, and replacement in that order.
+- `songs.append(value)` adds to the end. `songs.insert(i, value)` inserts before the normalized index and accepts `len(songs)` to append. Both require a value of the list's element type. Out-of-bounds insertions are runtime errors.
+- `songs.remove(value)` removes the first byte-equal string and reports a runtime error if absent. `songs.sort()` sorts in ascending UTF-8 byte order. `songs.pop()` removes and returns the last element and reports a runtime error on an empty list. `len(songs)` returns the number of elements as an `int`.
+- A standalone list mutation may be followed by a block on the same line. The mutation runs before the block, and a runtime error prevents the block from running. Variables declared in the block are local to it.
+- `print(songs)` renders bracketed, quoted strings separated by comma and space. ASCII controls, quotes, and backslashes are escaped. A list argument is read when the line is rendered, so earlier references reflect mutations from subsequent argument evaluation.
+- List objects, their element buffers, and dynamically created string data remain valid until process exit. List growth uses the shared 256 MiB dynamic storage budget. Removing elements does not reclaim their string data. Integer slices retain their existing rules.
+- Repeated brackets declare nested lists, as in `str[][] table = [["A"], ["B", "C"]]`. Rows may have different lengths or be empty. Indexing a nested list returns the shared child list. Each bracket pair checks bounds separately. Assigning to `table[i]` replaces a row, and assigning to `table[i][j]` changes one string.
+- Nested inference requires a known element type at each level. `[[], ["A"]]` infers `str[][]`; `[[], []]` needs an explicit type. Source supports one or two dimensions. `append`, `insert`, and `pop` operate on the current level's element type. `sort` and `remove` apply to flat `str[]` lists.
+- Mixed element types are rejected. The [mixed-list proposal](MIXED_LIST_DESIGN.md) records the changes needed to support them.
+
 ## Imports and file I/O
 
 - import "modules/file.m" resolves a relative path from the importing file. Each file is processed once. A file sees its own declarations and the public declarations of files imported directly or transitively.
 - Top-level functions, structs, and classes are public by default. public makes this explicit. private limits visibility to the declaring file. Local file declarations take precedence over imported public declarations. Conflicting public names, public declarations exposing private types, import cycles, and an imported main are compile errors.
-- readText(path) reads a UTF-8 file into a string. writeText(path, text) writes UTF-8 and replaces an existing file. Relative paths use the program's working directory. I/O errors and invalid UTF-8 cause runtime errors.
+- `readText(path)` and its alias `RText(path)` read a UTF-8 file into a `str`. Invalid file UTF-8 raises a runtime error. `writeText(path, text)` and its alias `WText(path, text)` write the given bytes and replace an existing file.
+- `AText(path, text)` creates a file or appends the given UTF-8 bytes at the end of an existing file. It leaves the existing bytes intact, inserts no newline, and does not decode the existing file. Writes can be partial on I/O failure. Concurrent appends can interleave between chunks.
+- File operations resolve relative paths from the program's working directory. Paths must be nonempty and cannot contain NUL. Embedded NUL remains valid in the file contents. I/O failures terminate with a source-located runtime error.
 
 ## Experimental fixed arrays and classes
 

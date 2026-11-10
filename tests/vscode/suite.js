@@ -101,8 +101,19 @@ async function run() {
             'vscode.executeCompletionItemProvider', document.uri, new vscode.Position(0, 4)
         );
         assert.ok(structureResults.items.some(item => item.label === 'struct'));
+        await editor.edit(edit => edit.replace(new vscode.Range(0, 0, 0, 4), 'str'));
+        const textResults = await vscode.commands.executeCommand(
+            'vscode.executeCompletionItemProvider', document.uri, new vscode.Position(0, 3)
+        );
+        assert.ok(textResults.items.some(item => item.label === 'str'));
+        assert.ok(!textResults.items.some(item => item.label === 'string'));
+        await editor.edit(edit => edit.replace(new vscode.Range(0, 0, 0, 3), 'list.po'));
+        const methodResults = await vscode.commands.executeCommand(
+            'vscode.executeCompletionItemProvider', document.uri, new vscode.Position(0, 7)
+        );
+        assert.ok(methodResults.items.some(item => item.label === 'pop'));
         await editor.edit(edit => edit.replace(
-            new vscode.Range(0, 0, 0, 4),
+            new vscode.Range(0, 0, 0, 7),
             'struct Point { int x }\nmain() { Point? p = Point(10)\nprint(p?.x ?? 0) }\n'
         ));
         await vscode.workspace.getConfiguration('moulang').update(
@@ -111,7 +122,9 @@ async function run() {
         assert.equal(await runCurrentFile(), 0);
         assert.match(await fs.readFile(file, 'utf8'), /^main\(\)/m);
         const second = path.join(directory, 'second.m');
-        await fs.writeFile(second, 'main() { print("second active file") }\n');
+        await fs.writeFile(second,
+            'main() {\n    str[] names = ["second"]\n    names.append("active") { print(names) }\n' +
+            '    print("type: {}") { format(type(names)) }\n}\n');
         await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(second));
         assert.equal(await runCurrentFile(), 0);
         editor = await vscode.window.showTextDocument(document);

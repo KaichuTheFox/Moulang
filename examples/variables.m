@@ -3,7 +3,7 @@ main() {
     int b = 20
     var result = a + b * 2
     bool ready = result >= 50
-    string label = "Result"
+    str label = "Result"
 
     print(label)
     print(result)

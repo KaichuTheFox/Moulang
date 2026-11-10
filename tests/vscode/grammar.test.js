@@ -59,3 +59,26 @@ test('TextMate marks structurally malformed escapes invalid', () => {
         assert.ok(scopesAt(result, 7).includes('invalid.illegal.escape.moulang'), escape);
     }
 });
+
+test('TextMate recognizes source types, block items, and Hangul names', () => {
+    const name = '\uD55C\uAE00';
+    const source = 'str ' + name + '(str name) {';
+    const declaration = grammar.tokenizeLine(source, textmate.INITIAL);
+    assert.ok(scopesAt(declaration, 0).includes('storage.type.moulang'));
+    assert.ok(scopesAt(declaration, 4).includes('entity.name.function.moulang'));
+    const oldType = grammar.tokenizeLine('string old = ""', textmate.INITIAL);
+    assert.ok(scopesAt(oldType, 0).includes('invalid.deprecated.type.moulang'));
+    for (const word of ['type', 'input', 'format']) {
+        const call = grammar.tokenizeLine(word + '(name)', textmate.INITIAL);
+        assert.ok(scopesAt(call, 0).includes('support.function.moulang'));
+    }
+});
+
+test('TextMate carries block comments across lines and leaves string delimiters alone', () => {
+    const open = grammar.tokenizeLine('/* "text" //', textmate.INITIAL);
+    assert.ok(scopesAt(open, 3).includes('comment.block.moulang'));
+    const close = grammar.tokenizeLine('done */ print("/* literal */")', open.ruleStack);
+    assert.ok(scopesAt(close, 0).includes('comment.block.moulang'));
+    assert.ok(scopesAt(close, 8).includes('support.function.moulang'));
+    assert.ok(scopesAt(close, 15).includes('string.quoted.double.moulang'));
+});

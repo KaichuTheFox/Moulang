@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 if(POLICY CMP0184)
     cmake_policy(SET CMP0184 NEW)
 endif()
-project(Moulang VERSION 0.2.0 LANGUAGES C CXX)
+project(Moulang VERSION 0.3.0 LANGUAGES C CXX)
 
 set(MOULANG_MSVC_INCLUDE_PREFIX "" CACHE STRING "Override the localized MSVC /showIncludes prefix for Ninja")
 if(CMAKE_GENERATOR MATCHES "^Ninja" AND MOULANG_MSVC_INCLUDE_PREFIX)
@@ -162,12 +162,32 @@ if(BUILD_TESTING)
     add_test(NAME moulang.integration COMMAND "${MOULANG_POWERSHELL}"
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/compiler.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -Hello "${CMAKE_SOURCE_DIR}/examples/hello.m"
-        -TestRoot "${CMAKE_BINARY_DIR}/integration")
+        -TestRoot "${CMAKE_BINARY_DIR}/integration" -ExpectedVersion "${PROJECT_VERSION}")
     set_tests_properties(moulang.integration PROPERTIES TIMEOUT 45)
     add_test(NAME moulang.string-escapes COMMAND "${MOULANG_POWERSHELL}"
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/string-escapes.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/string-escapes")
     set_tests_properties(moulang.string-escapes PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.text COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/text.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/text")
+    set_tests_properties(moulang.text PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.print-block COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/print-block.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/print-block")
+    set_tests_properties(moulang.print-block PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.string-lists COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/string-lists.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/string-lists")
+    set_tests_properties(moulang.string-lists PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.nested-lists COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/nested-lists.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/nested-lists")
+    set_tests_properties(moulang.nested-lists PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.text-files COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/text-files.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/text-files")
+    set_tests_properties(moulang.text-files PROPERTIES TIMEOUT 45)
     add_test(NAME moulang.long COMMAND "${MOULANG_POWERSHELL}"
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/long.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/long")

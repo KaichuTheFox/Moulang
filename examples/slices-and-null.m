@@ -3,7 +3,7 @@ main() {
     numbers = append(numbers, 40)
     print(numbers[3])
 
-    string? nickname = null
+    str? nickname = null
     print(nickname ?? "Unknown")
     nickname = "Moulang"
     if (nickname != null) {

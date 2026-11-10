@@ -13,9 +13,25 @@ enum class Type : std::uint32_t {
 
 inline constexpr std::uint32_t nullableStructureFlag = std::uint32_t{1} << 31;
 inline constexpr std::uint32_t fixedIntArrayFlag = std::uint32_t{1} << 30;
+inline constexpr std::uint32_t stringListFlag = std::uint32_t{1} << 29;
+inline constexpr unsigned maxStringListDepth = 2;
 
 inline bool structureType(Type type) {
-    return type >= Type::firstStructure && static_cast<std::uint32_t>(type) < fixedIntArrayFlag;
+    return type >= Type::firstStructure && static_cast<std::uint32_t>(type) < stringListFlag;
+}
+
+inline Type stringList(unsigned depth) {
+    return static_cast<Type>(stringListFlag | depth);
+}
+
+inline unsigned stringListDepth(Type type) {
+    const auto bits = static_cast<std::uint32_t>(type);
+    return (bits >> 29) == 1 ? bits & (stringListFlag - 1) : 0;
+}
+
+inline Type listElement(Type list) {
+    const auto depth = stringListDepth(list);
+    return depth == 1 ? Type::string : stringList(depth - 1);
 }
 
 inline Type fixedIntArray(unsigned length) {
@@ -42,7 +58,7 @@ inline Type namedType(std::string_view name) {
     if (name == "float") return Type::float32;
     if (name == "double") return Type::float64;
     if (name == "bool") return Type::boolean;
-    if (name == "string") return Type::string;
+    if (name == "str") return Type::string;
     if (name == "void") return Type::none;
     return Type::inferred;
 }
