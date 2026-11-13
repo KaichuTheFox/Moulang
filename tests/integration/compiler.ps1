@@ -200,10 +200,10 @@ bool isNull(bool? value) { return value == null }
 
     $numbers = @'
 main() {
-    print(char(-1))
-    print(char(260))
-    print(short(65535))
-    print(short(-32769))
+    print(char(-1 & 255))
+    print(char(260 & 255))
+    print(short((65535 & 32767) - (65535 & 32768)))
+    print(short((-32769 & 32767) - (-32769 & 32768)))
     long count = 2147483647
     count++
     print(count)

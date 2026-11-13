@@ -154,13 +154,20 @@ Token Lexer::readString(Location start) {
             }
             break;
         }
-        default: throw Diagnostic(origin, "ML1004", "Unknown string escape. Use a supported escape or escape the backslash.");
+        default: throw Diagnostic(origin, "ML1004", "Unknown string escape. Use a supported escape or escape the backslash.",
+            {SourceSpan{origin, location_}, {}, "Write \\\\ for a literal backslash."});
         }
     }
     throw Diagnostic(start, "ML1002", "Unterminated string literal.");
 }
 
 Token Lexer::next() {
+    auto token = scan();
+    token.end = location_;
+    return token;
+}
+
+Token Lexer::scan() {
     while (offset_ < source_.size()) {
         const auto start = location_;
         const auto begin = offset_;

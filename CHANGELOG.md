@@ -1,5 +1,31 @@
 # Changelog
 
+## Moulang 0.4.0 preview and bundled VS Code extension 0.2.1 (unreleased)
+
+- Add opt-in Tiki Inspector warnings for unused locals, repeated string accumulation, and repeated non-ASCII string indexing. Support per-rule suppression and VS Code live warnings.
+- Add Deep Tiki warning `TI-D001` for structural mutations on a known alias of a list in `foreach`. Deep is available through the CLI and VS Code and is included in opt-in All mode.
+- Add `Team.HaZos` alongside `KaichuTheFox` in the project's and extension's MIT copyright notices.
+
+- Use `.mcx` as the default source extension. Accept `.m`, `.mxx`, `.mpp`, `.mcp`, `.m++`, and `.mc+` in the same programs and in VS Code.
+
+- Add qualified standard imports for math, UTF-8 text, UTC and monotonic time, and reproducible random sampling. VS Code recognizes module aliases and completes their functions.
+
+- Add shared mutable integer lists with the `int[] name` spelling, list methods, guarded foreach, and ARC-managed read-only snapshot views. Preserve the existing integer slice syntax and standalone append.
+
+- Allow `foreach` over `str` using a forward UTF-8 cursor with ARC-managed source and item lifetimes.
+- Allow `foreach` over flat and nested string lists. Reject structural changes through any alias during iteration and permit indexed element replacement.
+- Use constant-time code-point indexing for ASCII strings. For other strings, scan UTF-8 from the end selected by the index without a full code-point count.
+
+- Show source excerpts, carets, and selected hints in interactive compiler diagnostics. Keep single-line output for redirected standard error, with explicit plain and rich options.
+
+- Reclaim dynamic UTF-8 strings and string lists using ARC, including buffers shared by slices and elements shared by nested lists.
+- Report managed memory and detect stale ownership handles in the instrumented Debug runtime.
+- The compiler and runtime archive have a new internal ABI. Rebuild them together.
+
+### Breaking Changes
+
+- Explicit integer casts to a narrower type now report a runtime error when the value exceeds the destination range. For example, `char(260)` and `short(65535)` previously produced `4` and `-1`. Use explicit masks to keep low bits. See [integer cast migration](docs/USER_GUIDE.md#migrate-integer-narrowing-casts).
+
 ## Moulang 0.3.0 preview and bundled VS Code extension 0.1.6 - 2026-11-10
 
 - Breaking source change. Rename the UTF-8 type from `string` to `str` and report a migration diagnostic for the old spelling.

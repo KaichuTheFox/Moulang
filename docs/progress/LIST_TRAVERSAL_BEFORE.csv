@@ -1,0 +1,2 @@
+workload,language,version,flags,comparison,compile_ms,execute_ms,peak_working_set_bytes,exe_bytes,samples
+list_indexed,Moulang,Moulang 0.3.0,-O2,indexed-sweep-only,120.637,89.558,4870144,214016,5

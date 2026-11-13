@@ -1,0 +1,13 @@
+workload,source_files,functions,mode,median_ms,min_ms,max_ms,median_peak_bytes,samples
+small,2,6,before,12.076,11.667,13.007,10584064,11
+small,2,6,off,11.695,11.156,12.239,10579968,11
+small,2,6,basic,11.690,11.215,13.529,10608640,11
+small,2,6,deep,11.575,11.162,13.957,10612736,11
+multi_file,21,1001,before,78.903,74.744,84.649,26353664,11
+multi_file,21,1001,off,78.520,74.498,89.310,26349568,11
+multi_file,21,1001,basic,79.828,77.190,87.295,26378240,11
+multi_file,21,1001,deep,79.737,77.393,91.693,26378240,11
+warning_emission,2,51,before,12.993,12.473,13.652,11333632,11
+warning_emission,2,51,off,12.537,11.920,13.116,11321344,11
+warning_emission,2,51,basic,12.465,12.070,13.312,11350016,11
+warning_emission,2,51,deep,12.558,12.193,14.133,11448320,11

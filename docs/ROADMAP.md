@@ -8,6 +8,12 @@
 
 Some phases have partial implementations. See the [implementation status](IMPLEMENTATION_STATUS.md) for what is available. Further tooling work includes benchmarks, a VS Code language server, and a Windows compiler installer.
 
+## Source module interfaces
+
+Stage 13 uses relative source imports and the existing `public` and `private` rules for source-distributed modules. A generated `.mci` interface paired with a `.lib` static archive remains a future option for independent compilation and distribution without implementation source. Revisit it when that distribution need is established. The binary design would define stable exported signatures, target and ABI compatibility, artifact pairing, and ownership across the library boundary. See the [module interface design](progress/MODULE_INTERFACE_DESIGN.md).
+
+Stage 6 implements ARC for dynamic strings and string lists. The [current ARC design](progress/ARC_DESIGN.md) describes the ownership boundaries and Debug checks. The following proposal records the earlier design checkpoint.
+
 ## Stage 9: memory model proposal
 
 The current runtime allocates heap slice buffers and class objects without general release logic. Repeated append/new operations can therefore grow memory until process exit. readText also returns allocated string storage without a language-level reclamation mechanism. Temporary console conversion buffers are a separate case and are explicitly freed. Fixed-array local-view checks do not provide general heap ownership, destruction or cycle handling. These are resource-lifetime limitations, not a claim that all existing bounds/null checks are absent.

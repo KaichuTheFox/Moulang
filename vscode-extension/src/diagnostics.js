@@ -13,7 +13,7 @@ function diagnosticsFor(document, stderr) {
     const key = fileKey(document.uri.fsPath);
     const results = [];
     for (const line of stderr.split(/\r?\n/)) {
-        const match = /^(.*):(\d+):(\d+): error (ML\d+): (.*)$/.exec(line);
+        const match = /^(.*):(\d+):(\d+): (error ML\d+|warning TI-[BDP]\d+): (.*)$/.exec(line);
         if (!match || fileKey(match[1]) !== key) continue;
         const lineNumber = Math.max(0, Math.min(document.lineCount - 1, Number(match[2]) - 1));
         const lineText = document.lineAt(lineNumber).text;
@@ -22,9 +22,12 @@ function diagnosticsFor(document, stderr) {
         const start = characters.slice(0, column).join('').length;
         const end = start + (characters[column]?.length ?? 0);
         const range = new vscode.Range(lineNumber, start, lineNumber, end);
-        const diagnostic = new vscode.Diagnostic(range, match[5], vscode.DiagnosticSeverity.Error);
-        diagnostic.code = match[4];
-        diagnostic.source = 'Moulang Check';
+        const [severity, code] = match[4].split(' ');
+        const warning = severity === 'warning';
+        const diagnostic = new vscode.Diagnostic(range, match[5],
+            warning ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error);
+        diagnostic.code = code;
+        diagnostic.source = warning ? 'Tiki Inspector' : 'Moulang Check';
         results.push(diagnostic);
     }
     return results;
@@ -56,9 +59,12 @@ function registerLiveDiagnostics(context) {
 
         const file = document.uri.fsPath;
         const version = document.version;
+        const args = ['check', file, '--stdin', '--library'];
+        const tikiMode = config.get('tikiMode');
+        if (['basic', 'perf', 'deep', 'all'].includes(tikiMode)) args.push('--tiki=' + tikiMode);
         const job = {};
         job.timer = setTimeout(() => {
-            job.child = execFile(executable, ['check', file, '--stdin', '--library'], {
+            job.child = execFile(executable, args, {
                 cwd: path.dirname(file), encoding: 'utf8', windowsHide: true, timeout: 10000
             }, (_, __, stderr) => {
                 if (pending.get(key) !== job) return;

@@ -9,7 +9,7 @@
 
 namespace moulang {
 enum class ExpressionKind { integer, real, boolean, string, variable, unary, binary, call, slice, subscript,
-    member, safeMember, methodCall, safeMethodCall, constructObject, view, conditional, nullLiteral };
+    member, safeMember, methodCall, safeMethodCall, standardCall, constructObject, view, conditional, nullLiteral };
 
 struct Expression {
     ExpressionKind kind;
@@ -29,6 +29,7 @@ struct Expression {
     std::string borrowOwner{};
     Type memberOwner = Type::none;
     std::unique_ptr<Expression> step{};
+    std::optional<SourceSpan> span{};
 };
 
 enum class StatementKind { print, declaration, assignment, fieldAssignment, call, returnValue, branch,
@@ -89,6 +90,7 @@ struct Program {
     struct Import {
         Location location;
         std::string path;
+        std::string alias{};
     };
 
     std::vector<Function> functions;

@@ -4,6 +4,18 @@ Status on 2026-11-07 is **approved static toolchain implemented; release validat
 
 ## Findings and limits
 
+### Read-only review on 2026-11-11
+
+The five reachable commits include one author record and one committer record outside the GitHub noreply domain. Current effective author and committer identities both use GitHub noreply. The remote main and both release tags matched the local reference IDs. These counts omit the addresses themselves.
+
+If you decide to rewrite history, follow this owner checklist.
+
+- Pause pushes with collaborators. Store the Git bundle, working-copy backup, and remote reference inventory in a new private location.
+- Verify the bundle and restore a separate copy before editing any Git references.
+- Make the approved email mapping in a fresh private mirror. Check author, committer, and annotated tag metadata for the old address and compare trees with the original refs.
+- Review branch protections and verify the expected remote commit immediately before applying any replacement. Recheck the remote afterward using a fresh clone and review any tags, signatures, and release references affected by changed object IDs.
+- Have collaborators save unpushed work separately, then re-clone or reset from the verified remote. Reapply their local work onto the replacement history. Existing clones, forks, caches, or copied records can retain the old metadata.
+
 - The local reachable history contains two commits. Commit `5ef29ba` has a non-noreply author and committer email. Commit `1adcccf` uses the GitHub noreply address for both. This is a local audit, not a new fetch of every remote ref.
 - A rewrite changes commit IDs, including descendants of the changed commit, and may invalidate commit or tag signatures, links, pull requests, and collaborators' clones. Changing future Git configuration does not change existing commits.
 - Rewriting reachable history does not erase copies in forks, clones, screenshots, notifications, search caches, or downloaded patches. GitHub may retain cached or pull request references. Contact GitHub Support for applicable cleanup. An already public email cannot be made secret again.

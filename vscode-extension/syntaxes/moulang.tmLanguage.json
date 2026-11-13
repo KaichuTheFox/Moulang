@@ -5,6 +5,15 @@
     { "name": "comment.line.double-slash.moulang", "match": "//.*$" },
     { "name": "comment.block.moulang", "begin": "/\\*", "end": "\\*/" },
     {
+      "match": "^[ \\t]*(import)[ \\t]+(\"std:(?:math|text|time|random)\")(?:[ \\t]+(as)[ \\t]+([A-Za-z_\\p{Hangul}][A-Za-z_0-9\\p{Hangul}]*))?",
+      "captures": {
+        "1": { "name": "keyword.control.moulang" },
+        "2": { "name": "string.quoted.double.moulang" },
+        "3": { "name": "keyword.control.moulang" },
+        "4": { "name": "entity.name.namespace.moulang" }
+      }
+    },
+    {
       "name": "string.quoted.double.moulang", "begin": "\"", "end": "\"|$",
       "patterns": [
         { "name": "constant.character.escape.moulang", "match": "\\\\(?:[nrt\\\\\"0]|x[0-9A-Fa-f]{2}|u\\{[0-9A-Fa-f]{1,6}\\})" },

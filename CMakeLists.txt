@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 if(POLICY CMP0184)
     cmake_policy(SET CMP0184 NEW)
 endif()
-project(Moulang VERSION 0.3.0 LANGUAGES C CXX)
+project(Moulang VERSION 0.4.0 LANGUAGES C CXX)
 
 set(MOULANG_MSVC_INCLUDE_PREFIX "" CACHE STRING "Override the localized MSVC /showIncludes prefix for Ninja")
 if(CMAKE_GENERATOR MATCHES "^Ninja" AND MOULANG_MSVC_INCLUDE_PREFIX)
@@ -81,17 +81,25 @@ file(MAKE_DIRECTORY "${moulang_runtime_directory}" "${CMAKE_BINARY_DIR}/bin")
 set(moulang_runtime_flags --target=x86_64-w64-windows-gnu -std=c++20 -O2 -DNDEBUG -fno-exceptions -fno-rtti
     -fno-stack-protector -ffunction-sections -fdata-sections
     "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=." "-ffile-prefix-map=${CMAKE_BINARY_DIR}=./build")
+string(TOUPPER "${CMAKE_BUILD_TYPE}" moulang_build_type)
+set(moulang_arc_configuration Release)
+if(moulang_build_type STREQUAL "DEBUG")
+    set(moulang_arc_configuration Debug)
+    list(APPEND moulang_runtime_flags -DMOULANG_ARC_DEBUG)
+endif()
 add_custom_command(OUTPUT "${moulang_runtime_archive}"
     COMMAND "${MOULANG_MINGW_CXX}" ${moulang_runtime_flags} -c
         "${CMAKE_SOURCE_DIR}/runtime/src/runtime.cpp" -o runtime.obj
     COMMAND "${MOULANG_MINGW_CXX}" ${moulang_runtime_flags} -c
         "${CMAKE_SOURCE_DIR}/runtime/src/real.cpp" -o real.obj
     COMMAND "${MOULANG_MINGW_CXX}" ${moulang_runtime_flags} -c
+        "${CMAKE_SOURCE_DIR}/runtime/src/standard.cpp" -o standard.obj
+    COMMAND "${MOULANG_MINGW_CXX}" ${moulang_runtime_flags} -c
         "${CMAKE_SOURCE_DIR}/runtime/src/startup.cpp" -o startup.obj
     COMMAND "${MOULANG_LLVM_LIB}" /NOLOGO "/OUT:${moulang_runtime_archive}"
-        runtime.obj real.obj startup.obj
+        runtime.obj real.obj standard.obj startup.obj
     WORKING_DIRECTORY "${moulang_runtime_directory}"
-    DEPENDS runtime/src/runtime.cpp runtime/src/real.cpp runtime/src/startup.cpp
+    DEPENDS runtime/src/runtime.cpp runtime/src/real.cpp runtime/src/standard.cpp runtime/src/startup.cpp
         "${MOULANG_MINGW_CXX}" "${MOULANG_LLVM_LIB}"
     VERBATIM)
 add_custom_target(moulang_runtime_build DEPENDS "${moulang_runtime_archive}")
@@ -101,16 +109,21 @@ add_dependencies(moulang_runtime moulang_runtime_build)
 
 add_executable(moulang
     src/cli/main.cpp
+    src/cli/diagnostics.cpp
     src/source/source.cpp
     src/source/program.cpp
     src/lexer/lexer.cpp
     src/parser/parser.cpp
     src/semantic/semantic.cpp
+    src/semantic/tiki.cpp
     src/codegen/llvm/object.cpp
     src/driver/windows.cpp
 )
 target_compile_features(moulang PRIVATE cxx_std_20)
 target_compile_options(moulang PRIVATE /W4 /utf-8)
+if(moulang_arc_configuration STREQUAL "Debug")
+    target_compile_definitions(moulang PRIVATE MOULANG_ARC_DEBUG)
+endif()
 target_include_directories(moulang PRIVATE include "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_include_directories(moulang SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_link_libraries(moulang PRIVATE ${moulang_llvm})
@@ -172,6 +185,10 @@ if(BUILD_TESTING)
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/text.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/text")
     set_tests_properties(moulang.text PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.diagnostics COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/diagnostics.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/diagnostics")
+    set_tests_properties(moulang.diagnostics PROPERTIES TIMEOUT 45)
     add_test(NAME moulang.print-block COMMAND "${MOULANG_POWERSHELL}"
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/print-block.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/print-block")
@@ -192,11 +209,51 @@ if(BUILD_TESTING)
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/long.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/long")
     set_tests_properties(moulang.long PROPERTIES TIMEOUT 90)
+    add_test(NAME moulang.integer-casts COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/integer-casts.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/integer-casts")
+    set_tests_properties(moulang.integer-casts PROPERTIES TIMEOUT 90)
+    add_test(NAME moulang.standard-library COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/standard-library.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/standard-library"
+        -Configuration "${moulang_arc_configuration}")
+    set_tests_properties(moulang.standard-library PROPERTIES TIMEOUT 90)
+    add_test(NAME moulang.source-extensions COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/source-extensions.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/source-extensions")
+    set_tests_properties(moulang.source-extensions PROPERTIES TIMEOUT 90)
+    add_test(NAME moulang.tiki COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/tiki.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/tiki")
+    set_tests_properties(moulang.tiki PROPERTIES TIMEOUT 45)
+    add_test(NAME moulang.arc-tiki COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/arc-tiki.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/arc-tiki"
+        -Configuration "${moulang_arc_configuration}")
+    set_tests_properties(moulang.arc-tiki PROPERTIES TIMEOUT 90)
     add_test(NAME moulang.relocation COMMAND "${MOULANG_POWERSHELL}"
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/relocation.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -Examples "${CMAKE_SOURCE_DIR}/examples"
         -TestRoot "${CMAKE_BINARY_DIR}/relocation")
     set_tests_properties(moulang.relocation PROPERTIES TIMEOUT 90)
+    add_test(NAME moulang.arc COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/arc.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -Cxx "${MOULANG_MINGW_CXX}"
+        -TestRoot "${CMAKE_BINARY_DIR}/arc" -Configuration "${moulang_arc_configuration}")
+    set_tests_properties(moulang.arc PROPERTIES TIMEOUT 90)
+    add_test(NAME moulang.text-foreach COMMAND "${MOULANG_POWERSHELL}"
+        -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/text-foreach.ps1"
+        -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/text-foreach"
+        -Configuration "${moulang_arc_configuration}")
+    set_tests_properties(moulang.text-foreach PROPERTIES TIMEOUT 45)
+    foreach(moulang_collection_test IN ITEMS list-foreach ascii-index int-lists)
+        add_test(NAME moulang.${moulang_collection_test} COMMAND "${MOULANG_POWERSHELL}"
+            -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_SOURCE_DIR}/tests/integration/${moulang_collection_test}.ps1"
+            -Compiler "$<TARGET_FILE:moulang>" -TestRoot "${CMAKE_BINARY_DIR}/${moulang_collection_test}"
+            -Configuration "${moulang_arc_configuration}")
+        set_tests_properties(moulang.${moulang_collection_test} PROPERTIES TIMEOUT 45)
+    endforeach()
     add_test(NAME moulang.static-runtime COMMAND "${MOULANG_POWERSHELL}"
         -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/integration/static-runtime.ps1"
         -Compiler "$<TARGET_FILE:moulang>" -ReadObject "${moulang_llvm_tools}/llvm-readobj.exe"

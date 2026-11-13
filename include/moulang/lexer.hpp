@@ -14,6 +14,7 @@ struct Token {
     TokenKind kind;
     Location location;
     std::string text;
+    Location end{};
 };
 
 class Lexer {
@@ -22,6 +23,7 @@ public:
     Token next();
 
 private:
+    Token scan();
     char advance();
     Token readString(Location start);
 

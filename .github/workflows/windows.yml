@@ -34,7 +34,7 @@ jobs:
           if ($env:RELEASE_TAG -cne ('v' + $Matches[1])) { throw 'Tag does not match the compiler version' }
       - name: Install verified LLVM 22.1.8 toolchains
         run: ./tools/Install-Toolchains.ps1
-      - name: Configure, build, and run CTest
+      - name: Build and test including compiler and generated PE imports
         run: ./tools/Build-Windows.ps1 -BuildDirectory build/windows-release
       - name: Install extension development dependencies
         working-directory: vscode-extension
@@ -49,7 +49,7 @@ jobs:
         env:
           MOULANG_TEST_COMPILER: ${{ github.workspace }}/build/windows-release/bin/moulang.exe
         run: npm test
-      - name: Package compiler, static kit, notices, and VSIX
+      - name: Scan distribution paths and package the compiler, notices, and VSIX
         run: ./tools/Package-Windows.ps1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -68,7 +68,7 @@ jobs:
         with:
           name: moulang-windows-x64
           path: incoming
-      - name: Verify ZIP and run installed Hello World
+      - name: Verify package integrity and run installed .mcx and .m examples
         shell: pwsh
         run: |
           $zip = 'incoming/moulang-windows-x64.zip'

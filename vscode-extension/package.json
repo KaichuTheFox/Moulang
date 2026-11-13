@@ -1,8 +1,8 @@
 {
   "name": "moulang",
   "displayName": "Moulang for VS Code",
-  "description": "Language support and native execution for Moulang (.m).",
-  "version": "0.1.6",
+  "description": "Language support and native execution for Moulang source files.",
+  "version": "0.2.1",
   "license": "MIT",
   "publisher": "KaichuTheFox",
   "icon": "images/moulang-icon.png",
@@ -45,7 +45,13 @@
           "Moulang"
         ],
         "extensions": [
-          ".m"
+          ".mcx",
+          ".m",
+          ".mxx",
+          ".mpp",
+          ".mcp",
+          ".m++",
+          ".mc+"
         ],
         "configuration": "./language-configuration.json"
       }
@@ -110,6 +116,13 @@
           "scope": "resource",
           "default": false,
           "description": "Check unsaved Moulang edits in trusted workspace folders."
+        },
+        "moulang.tikiMode": {
+          "type": "string",
+          "scope": "resource",
+          "enum": ["off", "basic", "perf", "deep", "all"],
+          "default": "off",
+          "description": "Show opt-in Tiki Inspector warnings when Moulang Live Diagnostics is enabled."
         }
       }
     }

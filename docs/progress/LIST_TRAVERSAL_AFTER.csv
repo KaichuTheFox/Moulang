@@ -1,0 +1,2 @@
+workload,language,version,flags,comparison,compile_ms,execute_ms,peak_working_set_bytes,exe_bytes,samples
+list_foreach,Moulang,Moulang 0.3.0,-O2,same-workload,122.404,89.959,4874240,216064,5

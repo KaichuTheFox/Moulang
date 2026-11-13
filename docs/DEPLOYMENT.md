@@ -12,6 +12,8 @@ The approved static kit targets Windows 10/11 x64 with the OS-supplied UCRT. It 
 
 Moulang links its runtime and C++ support statically into a single generated Windows x64 executable. The static-runtime regression test checks that the imports are permitted Windows system DLLs, with no separately distributed Moulang, libc++, or compiler runtime DLL.
 
+The packaged compiler has a separate Windows system DLL allowlist. See [release verification](RELEASE.md) for PE inspection, artifact privacy, notice, and integrity checks.
+
 ## VS Code extension
 
 The VSIX installs separately from the native compiler. See the [README](../README.md#visual-studio-code) for packaging and setup. The package identity is `KaichuTheFox.moulang`. Earlier packages can be retained as release archives.

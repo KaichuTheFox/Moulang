@@ -1,0 +1,8 @@
+workload,median_ns,min_ns,max_ns,samples
+ascii_long_first,72500,72500,72600,11
+hangul_short_first,88000,88000,88100,11
+hangul_long_first,88000,87900,98900,11
+hangul_long_last_negative,93200,93100,107700,11
+hangul_long_last_positive,150881800,149907800,153893000,11
+repeated_concat,2843100,2798200,2989900,11
+collect_and_join,300000,282600,307200,11

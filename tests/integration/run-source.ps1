@@ -4,12 +4,10 @@ $work = (New-Item -ItemType Directory -Path (Join-Path $root ([guid]::NewGuid().
 $env:TEMP = $work
 $env:TMP = $work
 
-function Invoke-Moulang([string] $Name, [string] $Source, [string] $Command = 'run', [byte[]] $InputBytes = @()) {
-    $file = Join-Path $work $Name
-    [IO.File]::WriteAllText($file, $Source, $utf8)
+function Invoke-TestProcess([string] $Program, [string] $Arguments = '', [byte[]] $InputBytes = @()) {
     $start = [Diagnostics.ProcessStartInfo]::new()
-    $start.FileName = $Compiler
-    $start.Arguments = "$Command ""$file"""
+    $start.FileName = $Program
+    $start.Arguments = $Arguments
     $start.WorkingDirectory = $work
     $start.UseShellExecute = $false
     $start.RedirectStandardInput = $true
@@ -28,4 +26,12 @@ function Invoke-Moulang([string] $Name, [string] $Source, [string] $Command = 'r
     } finally {
         $process.Dispose()
     }
+}
+
+function Invoke-Moulang([string] $Name, [string] $Source, [string] $Command = 'run', [byte[]] $InputBytes = @(),
+    [string[]] $Options = @()) {
+    $file = Join-Path $work $Name
+    [IO.File]::WriteAllText($file, $Source, $utf8)
+    $arguments = (@($Command, ('"' + $file + '"')) + $Options) -join ' '
+    Invoke-TestProcess $Compiler $arguments $InputBytes
 }

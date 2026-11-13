@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const vscode = require('vscode');
+const sourceExtensions = ['.mcx', '.m', '.mxx', '.mpp', '.mcp', '.m++', '.mc+'];
 
 async function runCurrentFile() {
     let listener;
@@ -58,6 +59,8 @@ async function run() {
         const extension = vscode.extensions.getExtension('KaichuTheFox.moulang');
         assert.ok(extension, 'Expected the Moulang extension ID.');
         assert.equal(extension.packageJSON.displayName, 'Moulang for VS Code');
+        const language = extension.packageJSON.contributes.languages.find(item => item.id === 'moulang');
+        assert.deepEqual(language?.extensions, sourceExtensions);
         assert.equal(extension.packageJSON.repository.url, 'https://github.com/KaichuTheFox/Moulang.git');
         assert.equal(extension.packageJSON.homepage, 'https://github.com/KaichuTheFox/Moulang#readme');
         assert.equal(extension.packageJSON.bugs.url, 'https://github.com/KaichuTheFox/Moulang/issues');
@@ -121,11 +124,24 @@ async function run() {
         );
         assert.equal(await runCurrentFile(), 0);
         assert.match(await fs.readFile(file, 'utf8'), /^main\(\)/m);
-        const second = path.join(directory, 'second.m');
+        const second = path.join(directory, 'second.mcx');
+        await fs.writeFile(path.join(directory, 'legacy module.m'),
+            'private int hiddenValue() { return 42 }\npublic int legacyValue() { return hiddenValue() }\n');
         await fs.writeFile(second,
-            'main() {\n    str[] names = ["second"]\n    names.append("active") { print(names) }\n' +
+            'import "legacy module.m"\nimport "std:math" as numeric\nmain() {\n' +
+            '    print(numeric.sqrt(81), legacyValue())\n' +
+            '    str[] names = ["second"]\n    names.append("active") { print(names) }\n' +
+            '    foreach (part in "A\\u{D55C}") { print(part) }\n' +
+            '    foreach (name in names) { print(name[-1]) }\n' +
+            '    int[] numbers = [1, 2]\n    numbers.append(3)\n    print(numbers[-1])\n' +
             '    print("type: {}") { format(type(names)) }\n}\n');
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(second));
+        const secondDocument = await vscode.workspace.openTextDocument(second);
+        await vscode.window.showTextDocument(secondDocument);
+        const modulePosition = secondDocument.positionAt(secondDocument.getText().indexOf('numeric.sqrt') + 'numeric.sq'.length);
+        const moduleResults = await vscode.commands.executeCommand(
+            'vscode.executeCompletionItemProvider', secondDocument.uri, modulePosition
+        );
+        assert.ok(moduleResults.items.some(item => item.label === 'sqrt'));
         assert.equal(await runCurrentFile(), 0);
         editor = await vscode.window.showTextDocument(document);
         const end = document.positionAt(document.getText().length);
@@ -140,6 +156,7 @@ async function run() {
         assert.ok(diagnostic, `Expected a compiler error on the Unicode source file. Found ${JSON.stringify(reported)}.`);
         assert.equal(diagnostic.range.start.line, 0);
         assert.match(diagnostic.message, /Undeclared variable/);
+        assert.equal(vscode.languages.getDiagnostics(document.uri).filter(item => item.source === 'Moulang').length, 1);
         await vscode.workspace.getConfiguration('moulang').update(
             'liveDiagnostics', true, vscode.ConfigurationTarget.Global
         );
@@ -165,7 +182,77 @@ async function run() {
         assert.ok(await waitFor(() => !vscode.languages.getDiagnostics(document.uri)
             .some(item => item.source === 'Moulang Check')));
         assert.equal(await runCurrentFile(), 0);
-        console.log('PASS: Moulang activation, menus, current-file arguments, completion, execution, compiler/escape diagnostics and unsaved edits.');
+        await replaceSource('main() { print(char(260)) }\n');
+        assert.equal(await runCurrentFile(), 1);
+        await replaceSource('main() { print(char(260 & 255)) }\n');
+        assert.equal(await runCurrentFile(), 0);
+        for (const [index, suffix] of sourceExtensions.entries()) {
+            const sampleFile = path.join(directory, 'suffix test ' + index + suffix);
+            await fs.writeFile(sampleFile, 'p');
+            const sample = await vscode.workspace.openTextDocument(sampleFile);
+            const sampleEditor = await vscode.window.showTextDocument(sample);
+            assert.equal(sample.languageId, 'moulang', 'Expected language association for ' + suffix);
+            const completions = await vscode.commands.executeCommand(
+                'vscode.executeCompletionItemProvider', sample.uri, new vscode.Position(0, 1)
+            );
+            assert.ok(completions.items.some(item => item.label === 'print' && item.insertText instanceof vscode.SnippetString),
+                'Expected the print snippet for ' + suffix);
+            const update = text => sampleEditor.edit(edit => edit.replace(
+                new vscode.Range(new vscode.Position(0, 0), sample.positionAt(sample.getText().length)), text));
+            const liveError = () => vscode.languages.getDiagnostics(sample.uri)
+                .find(item => item.source === 'Moulang Check' && item.code === 'ML3004');
+            assert.ok(await update('main() { print(missingSuffixValue) }\n'));
+            assert.ok(await waitFor(liveError), 'Expected live diagnostics for ' + suffix);
+            assert.ok(await update('main() { print(42) }\n'));
+            assert.equal(await runCurrentFile(), 0, 'Expected a successful run for ' + suffix);
+            assert.ok(await waitFor(() => !liveError()), 'Expected diagnostics to clear for ' + suffix);
+        }
+        editor = await vscode.window.showTextDocument(document);
+        const tikiSetting = vscode.workspace.getConfiguration('moulang', document.uri);
+        assert.equal(tikiSetting.inspect('tikiMode').defaultValue, 'off');
+        const tikiWarning = () => vscode.languages.getDiagnostics(document.uri)
+            .find(item => item.code === 'TI-B001' && item.source === 'Tiki Inspector');
+        const unicodeLine = '    if ("\u{1F642}" == "") { int unused = 1 }';
+        await replaceSource('main() {\n' + unicodeLine + '\n}\n');
+        await tikiSetting.update('tikiMode', 'basic', vscode.ConfigurationTarget.Global);
+        const warning = await waitFor(tikiWarning);
+        assert.ok(warning, 'Expected a Tiki warning from unsaved source.');
+        assert.equal(warning.severity, vscode.DiagnosticSeverity.Warning);
+        assert.equal(warning.range.start.line, 1);
+        assert.equal(warning.range.start.character, unicodeLine.indexOf('unused'));
+        assert.match(warning.message, /Hint:/);
+        assert.doesNotMatch(await fs.readFile(file, 'utf8'), /int unused/);
+        await tikiSetting.update('tikiMode', 'off', vscode.ConfigurationTarget.Global);
+        assert.ok(await waitFor(() => !tikiWarning()));
+        await tikiSetting.update('tikiMode', 'basic', vscode.ConfigurationTarget.Global);
+        assert.ok(await waitFor(tikiWarning));
+        await replaceSource('main() { int oldName = 1\nprint(oldName) }\n');
+        assert.ok(await waitFor(() => !tikiWarning()));
+        await replaceSource('main() { int unused = 1\nprint(missingWithTiki) }\n');
+        assert.ok(await waitFor(() => findDiagnostic('Moulang Check')?.message.includes('missingWithTiki')));
+        assert.ok(!tikiWarning(), 'Compiler errors take precedence over Tiki.');
+        const mutationLine = '        if ("\u{1F642}" != "") { alias.append(item) }';
+        const deepSource = [
+            'main() {', '    int[] values = [1, 2]', '    var alias = values',
+            '    foreach (item in values) {', mutationLine, '    }', '}', ''
+        ].join('\n');
+        const deepWarning = () => vscode.languages.getDiagnostics(document.uri)
+            .find(item => item.code === 'TI-D001' && item.source === 'Tiki Inspector');
+        await replaceSource(deepSource);
+        await tikiSetting.update('tikiMode', 'deep', vscode.ConfigurationTarget.Global);
+        const mutationWarning = await waitFor(deepWarning);
+        assert.ok(mutationWarning, 'Expected a Deep warning for a shared list.');
+        assert.equal(mutationWarning.severity, vscode.DiagnosticSeverity.Warning);
+        assert.equal(mutationWarning.range.start.line, 4);
+        assert.equal(mutationWarning.range.start.character, mutationLine.indexOf('append'));
+        assert.match(mutationWarning.message, /Hint:.*after foreach/);
+        await replaceSource(deepSource.replace('alias.append(item)', 'alias[0] = item'));
+        assert.ok(await waitFor(() => !deepWarning()), 'An indexed replacement is allowed.');
+        await replaceSource(deepSource);
+        assert.ok(await waitFor(deepWarning));
+        await tikiSetting.update('tikiMode', 'off', vscode.ConfigurationTarget.Global);
+        assert.ok(await waitFor(() => !deepWarning()), 'Disabling Deep should clear its warning.');
+        console.log('PASS: Moulang activation, execution, diagnostics, source suffixes, and opt-in Tiki warnings.');
     } finally {
         // Task terminals may retain this working directory until Code exits.
         // Preserve fixtures for diagnosis rather than masking a test failure with EBUSY.

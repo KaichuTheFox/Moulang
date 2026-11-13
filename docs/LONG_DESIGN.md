@@ -2,6 +2,8 @@
 
 The owner explicitly selected R2, P1, and O1: checked long-to-int narrowing, explicit long/real conversions, and ordinary function overloads. Stage 6 implements these choices. Unselected alternatives below record the reviewed tradeoffs and are not supported modes.
 
+The [Stage 10 design](progress/INTEGER_CONVERSION_DESIGN.md) extends checked integer narrowing to char and short.
+
 ## Proposed common rules
 
 - Make long a signed, two's-complement 64-bit type. Keep char unsigned 8-bit, short signed 16-bit, and int signed 32-bit. int converts implicitly to long; long converts to int only with an explicit int(value).

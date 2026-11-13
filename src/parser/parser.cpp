@@ -1,4 +1,5 @@
 #include "moulang/parser.hpp"
+#include "moulang/standard.hpp"
 
 #include <charconv>
 #include <utility>
@@ -6,12 +7,13 @@
 namespace moulang {
 Token Parser::take() {
     previous_ = current_.kind;
+    if (current_.kind != TokenKind::newline) lastTokenEnd_ = current_.end;
     return std::exchange(current_, lexer_.next());
 }
 
 Token Parser::expect(TokenKind kind, const char* message) {
     if (current_.kind != kind) {
-        throw Diagnostic(current_.location, "ML2001", message);
+        throw Diagnostic(current_.location, "ML2001", message, {SourceSpan{current_.location, current_.end}, {}, {}});
     }
     return take();
 }
@@ -53,7 +55,9 @@ std::unique_ptr<Expression> integerLiteral(Token token, bool negative = false) {
     const auto parsed = std::from_chars(token.text.data(), token.text.data() + token.text.size(),
         expression->integer);
     if (parsed.ec != std::errc{}) {
-        throw Diagnostic(token.location, "ML3003", "Integer literal is outside the signed 64-bit range.");
+        throw Diagnostic(token.location, "ML3003", "Integer literal is outside the signed 64-bit range.",
+            {SourceSpan{token.location, token.end}, negative ? "The minimum long value is -9223372036854775808."
+                : "The maximum long value is 9223372036854775807.", {}});
     }
     return expression;
 }
@@ -173,6 +177,8 @@ std::unique_ptr<Expression> Parser::parsePrimary(bool multiline) {
 }
 
 std::unique_ptr<Expression> Parser::parseExpression(int minimum, bool multiline) {
+    if (multiline) skipNewlines();
+    const auto start = current_.location;
     auto left = parseOperand(multiline);
     if (multiline) skipNewlines();
     while (current_.kind == TokenKind::operation && precedence(current_.text) >= minimum) {
@@ -193,6 +199,7 @@ std::unique_ptr<Expression> Parser::parseExpression(int minimum, bool multiline)
         });
         left->alternative = std::move(negative);
     }
+    left->span = SourceSpan{start, lastTokenEnd_};
     return left;
 }
 
@@ -284,7 +291,7 @@ Statement Parser::parseStatement() {
         return {StatementKind::call, location, {}, Type::none, parseCall(std::move(word))};
     }
     if (current_.kind == TokenKind::dot || current_.kind == TokenKind::safeDot ||
-        (current_.kind == TokenKind::leftBracket && word.text != "str" && word.text != "string")) {
+        (current_.kind == TokenKind::leftBracket && word.text != "int" && word.text != "str" && word.text != "string")) {
         const auto location = word.location;
         auto target = std::make_unique<Expression>(Expression{
             ExpressionKind::variable, location, std::move(word.text), {}, {}
@@ -362,6 +369,11 @@ Type Parser::parseType(const Token& token) {
 }
 
 Type Parser::parseTypeSuffix(Type type) {
+    if (type == Type::integer && current_.kind == TokenKind::leftBracket) {
+        take();
+        expect(TokenKind::rightBracket, "Expected ']' in int list type.");
+        type = Type::intList;
+    }
     if (type == Type::string) {
         unsigned depth = 0;
         while (current_.kind == TokenKind::leftBracket) {
@@ -560,7 +572,12 @@ Program Parser::parse() {
             if (visibility) throw Diagnostic(current_.location, "ML2001", "An import cannot have a visibility modifier.");
             take();
             auto path = expect(TokenKind::string, "Expected a quoted source path after 'import'.");
-            program.imports.push_back({path.location, std::move(path.text)});
+            std::string alias;
+            if (standardImport(path.text) && atWord("as")) {
+                take();
+                alias = expect(TokenKind::identifier, "Expected a standard module alias.").text;
+            }
+            program.imports.push_back({path.location, std::move(path.text), std::move(alias)});
             if (current_.kind != TokenKind::end) expect(TokenKind::newline, "Expected a newline after import.");
         } else if (atWord("struct")) {
             program.structures.push_back(parseStructure());

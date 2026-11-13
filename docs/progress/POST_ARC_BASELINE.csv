@@ -1,0 +1,37 @@
+workload,language,version,flags,comparison,compile_ms,execute_ms,peak_working_set_bytes,exe_bytes,samples
+integer_math,Moulang,Moulang 0.3.0,-O2,same-workload,114.131,56.461,4853760,210432,5
+integer_math,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2079.425,111.460,5095424,1472512,5
+integer_math,CPython,3.14.6,-B,same-workload,N/A,119.851,14123008,N/A,5
+real_math,Moulang,Moulang 0.3.0,-O2,same-workload,119.762,66.582,4878336,560128,5
+real_math,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2071.989,105.227,5132288,1472512,5
+real_math,CPython,3.14.6,-B,same-workload,N/A,126.387,14151680,N/A,5
+loop_count,Moulang,Moulang 0.3.0,-O2,same-workload,129.856,69.803,4853760,210432,5
+loop_count,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2144.025,107.226,5095424,1473024,5
+loop_count,CPython,3.14.6,-B,same-workload,N/A,175.130,14139392,N/A,5
+function_calls,Moulang,Moulang 0.3.0,-O2,same-workload,137.250,66.807,4857856,210432,5
+function_calls,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2248.480,120.819,5107712,1473024,5
+function_calls,CPython,3.14.6,-B,same-workload,N/A,128.229,14127104,N/A,5
+string_concat,Moulang,Moulang 0.3.0,-O2,same-workload,114.385,52.458,4845568,89600,5
+string_concat,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2019.893,103.417,5091328,1472000,5
+string_concat,CPython,3.14.6,-B,same-workload,N/A,101.089,14364672,N/A,5
+list_access,Moulang,Moulang 0.3.0,-O2,same-workload,133.470,66.732,4866048,215040,5
+list_access,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2140.755,163.247,5111808,1472000,5
+list_access,CPython,3.14.6,-B,same-workload,N/A,118.696,14147584,N/A,5
+list_sort,Moulang,Moulang 0.3.0,-O2,builtin-sort-only,127.872,71.486,4870144,222208,5
+list_sort,C++20,clang version 22.1.8,-std=c++20 -O2 -static,builtin-sort-only,2161.294,148.591,5107712,1472000,5
+list_sort,CPython,3.14.6,-B,builtin-sort-only,N/A,104.895,14163968,N/A,5
+ascii_foreach,Moulang,Moulang 0.3.0,-O2,N/A,N/A,N/A,N/A,N/A,0
+ascii_foreach,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2071.395,114.050,5103616,1472000,5
+ascii_foreach,CPython,3.14.6,-B,same-workload,N/A,130.849,14192640,N/A,5
+hangul_foreach,Moulang,Moulang 0.3.0,-O2,N/A,N/A,N/A,N/A,N/A,0
+hangul_foreach,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,1983.420,106.650,5107712,1472000,5
+hangul_foreach,CPython,3.14.6,-B,same-workload,N/A,147.793,14180352,N/A,5
+ascii_indexed,Moulang,Moulang 0.3.0,-O2,indexed-sweep-only,113.711,62.767,4866048,212992,5
+ascii_indexed,C++20,clang version 22.1.8,-std=c++20 -O2 -static,N/A,N/A,N/A,N/A,N/A,0
+ascii_indexed,CPython,3.14.6,-B,N/A,N/A,N/A,N/A,N/A,0
+hangul_indexed,Moulang,Moulang 0.3.0,-O2,indexed-sweep-only,125.656,73.643,4861952,212992,5
+hangul_indexed,C++20,clang version 22.1.8,-std=c++20 -O2 -static,N/A,N/A,N/A,N/A,N/A,0
+hangul_indexed,CPython,3.14.6,-B,N/A,N/A,N/A,N/A,N/A,0
+file_io,Moulang,Moulang 0.3.0,-O2,same-workload,111.428,77.598,5206016,93184,5
+file_io,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2073.138,133.744,5406720,1472000,5
+file_io,CPython,3.14.6,-B,same-workload,N/A,121.051,14712832,N/A,5

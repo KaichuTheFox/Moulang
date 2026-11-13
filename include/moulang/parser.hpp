@@ -43,10 +43,11 @@ private:
     Lexer lexer_;
     Token current_;
     TokenKind previous_ = TokenKind::end;
+    Location lastTokenEnd_;
     std::unordered_map<std::string, Type> structureTypes_;
     std::vector<TypeReference>& typeReferences_;
 };
 
 Program loadProgram(const std::filesystem::path& entry, std::vector<std::filesystem::path>& sources,
-    std::optional<std::string_view> entryText = std::nullopt);
+    std::optional<std::string_view> entryText = std::nullopt, std::vector<std::string>* snapshots = nullptr);
 }

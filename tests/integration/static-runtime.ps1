@@ -9,21 +9,29 @@ $root = New-Item -ItemType Directory -Force -Path $TestRoot
 $workspace = (New-Item -ItemType Directory -Path (Join-Path $root.FullName ([guid]::NewGuid().ToString('N')))).FullName
 $env:TEMP = $workspace
 $env:TMP = $workspace
-$allowed = @('KERNEL32.dll', 'ADVAPI32.dll', 'SHELL32.dll', 'USER32.dll', 'msvcrt.dll', 'ucrtbase.dll', 'ntdll.dll')
-foreach ($name in 'hello', 'numbers', 'objects') {
-    $exe = Join-Path $workspace ($name + '.exe')
-    & $Compiler build (Join-Path $Examples ($name + '.m')) -o $exe
-    if ($LASTEXITCODE -ne 0) { throw "Cannot build import fixture $name." }
-    $imports = & $ReadObject --coff-imports $exe
+$system = @('KERNEL32.dll', 'ADVAPI32.dll', 'SHELL32.dll', 'USER32.dll', 'msvcrt.dll', 'ucrtbase.dll', 'ntdll.dll')
+$crt = @('convert', 'environment', 'filesystem', 'heap', 'locale', 'math', 'private', 'runtime', 'stdio', 'string') |
+    ForEach-Object { "api-ms-win-crt-$_-l1-1-0.dll" }
+
+function Assert-SystemImports([string] $File, [string[]] $Allowed) {
+    $imports = & $ReadObject --coff-imports $File
     if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect PE imports.' }
     $dlls = @($imports | ForEach-Object { if ($_ -match '^\s*Name:\s*(\S+\.dll)\s*$') { $Matches[1] } })
     if (!$dlls.Count) { throw 'PE import inspection returned no DLLs.' }
-    foreach ($dll in $dlls) {
-        if ($dll -notin $allowed -and $dll -notmatch '^(api-ms-win|ext-ms-win)-.*\.dll$') {
-            throw "Unexpected non-system DLL dependency: $dll"
-        }
+    $name = Split-Path -Leaf $File
+    $unexpected = @($dlls | Where-Object { $_ -notin $Allowed } | Sort-Object -Unique)
+    if ($unexpected.Count) {
+        throw "Unexpected DLL imports in $name ($($unexpected -join ', '))."
     }
-    Write-Output "PASS: $name imports only Windows system DLLs."
+    Write-Output "PASS: $name imports $((($dlls | Sort-Object -Unique) -join ', '))."
+}
+
+Assert-SystemImports $Compiler ($system + 'ole32.dll')
+foreach ($name in 'hello', 'numbers', 'objects', 'text', 'lists', 'standard-library') {
+    $exe = Join-Path $workspace ($name + '.exe')
+    & $Compiler build (Join-Path $Examples ($name + '.m')) -o $exe
+    if ($LASTEXITCODE -ne 0) { throw "Cannot build import fixture $name." }
+    Assert-SystemImports $exe ($system + $crt)
 }
 $bin = Split-Path -Parent $Compiler
 foreach ($file in 'libcmt.lib', 'libcpmt.lib', 'libvcruntime.lib', 'kernel32.lib') {

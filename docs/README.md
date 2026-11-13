@@ -1,0 +1,23 @@
+# Moulang documentation
+
+- [Language specification](LANGUAGE_SPEC.md) covers syntax, types, and execution semantics.
+- [User guide](USER_GUIDE.md) covers running examples, interpreting diagnostics, and upgrading from the old string spelling.
+- [Implementation status](IMPLEMENTATION_STATUS.md), [roadmap](ROADMAP.md), and [current update audit](progress/UPDATE_AUDIT.md) describe supported and planned features.
+- [ARC design](progress/ARC_DESIGN.md), [pre-ARC benchmark report](progress/PRE_ARC_BASELINE.md), and [ARC validation and comparison](progress/ARC_VALIDATION.md) cover the ownership model and measurements.
+- [Compiler architecture](COMPILER_ARCHITECTURE.md) and [diagnostic proposals](DIAGNOSTIC_PROPOSALS.md) describe the compiler and existing diagnostics.
+- [Stage 7 diagnostic design](progress/DIAGNOSTICS_DESIGN.md) compares terminal and opt-in output policies.
+- [Stage 8 iteration design](progress/FOREACH_DESIGN.md) covers string and list foreach and ASCII indexing.
+- [Stage 9 integer list design](progress/INTEGER_LIST_DESIGN.md) records the approved compatibility rules and validation plan.
+- [Stage 10 integer conversion design](progress/INTEGER_CONVERSION_DESIGN.md) records the approved checked narrowing policy and its compatibility effects.
+- [Stage 11 standard library design](progress/STANDARD_LIBRARY_DESIGN.md) records the qualified imports and first module APIs.
+- [Stage 12 source extension design](progress/SOURCE_EXTENSION_DESIGN.md) records seven suffixes, editor associations, and compatibility tests.
+- [Stage 13 module interface design](progress/MODULE_INTERFACE_DESIGN.md) records the source import decision and a future binary interface option.
+- [Stage 14 Tiki Inspector design](progress/TIKI_INSPECTOR_DESIGN.md) documents the initial opt-in rules, CLI, diagnostics, and validation.
+- [Stage 15 ARC and Tiki integration design](progress/ARC_TIKI_INTEGRATION_DESIGN.md) describes the validation plan and Deep mode options.
+- [Stage 16 performance optimization design](progress/PERFORMANCE_OPTIMIZATION_DESIGN.md) records the performance baseline and optimization options.
+- [Final update verification](progress/FINAL_UPDATE_VERIFICATION.md) records the local build, package, and compatibility checks for Stages 1 through 16.
+- [Next preview release preparation](progress/NEXT_PREVIEW_RELEASE.md) records the selected versions, verification, and publication sequence.
+- [String escape decisions](STRING_ESCAPE_DESIGN.md), [integer conversion and overload decisions](LONG_DESIGN.md), and [mixed list proposal](MIXED_LIST_DESIGN.md) record design details.
+- [Installation](INSTALL.md), [Windows deployment](DEPLOYMENT.md), [release verification](RELEASE.md), and the [VS Code test guide](../tests/vscode/README.md) cover the distribution and editor integration.
+- [Privacy](PRIVACY.md) and [repository rename history](REPOSITORY_RENAME.md) cover repository and distribution maintenance.
+- [0.4.0 preview notes](RELEASE_NOTES_0.4.0.md), [0.3.0 release notes](RELEASE_NOTES_0.3.0.md), [0.2.0 release notes](RELEASE_NOTES_0.2.0.md), and the [changelog](../CHANGELOG.md) describe the updates.

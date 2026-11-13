@@ -2,13 +2,15 @@
 
 <img src="vscode-extension/images/moulang-icon.png" alt="Moulang logo" width="128">
 
-Moulang is a statically typed programming language from the HAZOS development team. The project adopted the Moulang name while keeping its `.m` source format. The compiler is written in C++20 and uses LLVM to produce native Windows x64 executables. The project aims to make native compilation and source-level diagnostics easy to use while keeping the language small.
+Moulang is a statically typed programming language from the HAZOS development team. In current source builds, `.mcx` is the default extension and `.m` supports existing projects. The compiler is written in C++20 and uses LLVM to produce native Windows x64 executables. The project aims to make native compilation and source-level diagnostics easy to use while keeping the language small.
 
 ## Install without building
 
 **Currently Windows x64 only.** Linux portability is a [design proposal](docs/PLATFORM_DESIGN.md); no Linux implementation has been validated.
 
 Moulang 0.3.0 is a Windows x64 preview with `str`, print blocks, string lists, and UTF-8 append. See the [release notes](docs/RELEASE_NOTES_0.3.0.md) for migration from 0.2.0 and current limitations.
+
+The current source builds Moulang 0.4.0 and bundles VS Code extension 0.2.1. See the [0.4.0 preview notes](docs/RELEASE_NOTES_0.4.0.md).
 
 1. Download the [compiler ZIP](https://github.com/KaichuTheFox/Moulang/releases/download/v0.3.0/moulang-windows-x64.zip) and [SHA-256 file](https://github.com/KaichuTheFox/Moulang/releases/download/v0.3.0/moulang-windows-x64.zip.sha256) from [Release v0.3.0](https://github.com/KaichuTheFox/Moulang/releases/tag/v0.3.0). Compare `Get-FileHash .\moulang-windows-x64.zip -Algorithm SHA256` with the checksum file, then extract the whole ZIP, for example to `C:\Moulang`.
 2. Add its `bin` folder to your Windows user `PATH`, reopen the terminal, and run `moulang --version`. Keep `bin/toolchain` and its notices alongside the compiler.
@@ -18,7 +20,7 @@ The package targets Windows 10/11 x64 and uses Windows system DLLs. Run its incl
 
 ## Hello, world
 
-Save this as `hello.m`.
+Save this as `hello.mcx` for a current source build, or `hello.m` for the published 0.3.0 preview.
 
 ```moulang
 main() {
@@ -55,15 +57,16 @@ The compiler bundle is in the build directory's `bin` folder. Keep the entire `b
 ```powershell
 moulang --version
 moulang --help
-moulang run examples/hello.m
-moulang build examples/hello.m -o build/moulang/hello.exe
+moulang run examples/hello.mcx
+moulang build examples/hello.mcx -o build/moulang/hello.exe
 .\build\moulang\hello.exe
-moulang check examples/objects.m
+moulang check examples/hello.mcx
 ```
 
 - `run` compiles and runs a temporary executable. It forwards the program's exit code.
 - `build` writes an executable. Without `-o`, it writes the executable to the current directory using the source file's base name. Use `-O0`, `-O2`, or `-O3` to set optimization.
 - `check` parses and type checks source. It accepts `--stdin` for unsaved text and `--library` for source that does not need a `main` entry point.
+- `check --tiki=deep` adds an advisory warning for known structural changes to a list during `foreach`. See the [Tiki Inspector guide](docs/USER_GUIDE.md#run-tiki-inspector) for all rule groups.
 
 ## Language example
 
@@ -111,9 +114,9 @@ npm run package
 Pop-Location
 ```
 
-In VS Code, select **Extensions > Install from VSIX** and open that package. Open the folder containing your `.m` file. If the compiler is outside `PATH`, set **Moulang: Executable Path** (`moulang.executablePath`) to the full path to `moulang.exe`. If you configured an earlier extension, copy its compiler path into this setting and disable the earlier extension to avoid duplicate file associations.
+In VS Code, select **Extensions > Install from VSIX** and open that package. Open the folder containing your Moulang source file. If the compiler is outside `PATH`, set **Moulang: Executable Path** (`moulang.executablePath`) to the full path to `moulang.exe`. If you configured an earlier extension, copy its compiler path into this setting and disable the earlier extension to avoid duplicate file associations.
 
-Open a saved `.m` file and click the play button in the upper right of the editor. The **Moulang: Run Current File** command in the Command Palette does the same thing. The extension saves edits before running. Output appears in the terminal and compiler errors appear in **Problems**. **Moulang: Live Diagnostics** checks unsaved changes in a trusted workspace.
+Open a saved Moulang source file and click the play button in the upper right of the editor. The **Moulang: Run Current File** command in the Command Palette does the same thing. The extension saves edits before running. Output appears in the terminal and compiler errors appear in **Problems**. **Moulang: Live Diagnostics** checks unsaved changes in a trusted workspace.
 
 The display name is **Moulang for VS Code** and the identity is `KaichuTheFox.moulang`. The 0.3.0 compiler kit bundles extension 0.1.6 with highlighting and completion for the new syntax. When the compiler cannot be found, **Open Settings** opens `moulang.executablePath` directly. See the [extension testing guide](tests/vscode/README.md).
 
@@ -135,7 +138,13 @@ See the [diagnostic improvement proposals](docs/DIAGNOSTIC_PROPOSALS.md) for ten
 
 ## Project information
 
-Heap-backed slices, class objects and file-read string storage currently remain allocated until process exit. See the [memory model comparison and recommendation](docs/ROADMAP.md#stage-9-memory-model-proposal). Automatic reclamation and Godot integration are future work, not implemented features.
+Current source builds reclaim dynamic strings and string lists with reference counting. Heap-backed integer slices and class objects live until process exit. See the [ARC design](docs/progress/ARC_DESIGN.md) and [Debug memory checks](docs/USER_GUIDE.md#check-managed-memory-in-a-debug-build).
+
+Current builds support `foreach` over strings and string lists. A list can replace elements during iteration, and structural changes raise a runtime error. ASCII strings use constant-time code-point indexing. See the [iteration guide](docs/USER_GUIDE.md#iterate-over-a-string-list).
+
+Use `int[] numbers = [10, 20]` for a shared integer list with methods such as `numbers.append(30)`. The existing integer slice syntax remains available. See the [integer collection guide](docs/USER_GUIDE.md#choose-an-integer-list-or-slice).
+
+Current source builds support `import "std:math"`, `std:text`, `std:time`, and `std:random`. See the [standard module example](examples/standard-library.m) and [module reference](docs/LANGUAGE_SPEC.md#standard-modules).
 
 Moulang is developed by HAZOS and distributed under the [MIT License](LICENSE).
 
@@ -144,6 +153,7 @@ Moulang is developed by HAZOS and distributed under the [MIT License](LICENSE).
 Release builds omit compiler debug information and map compiler source/object paths when supported. The compiler resolves its approved LLVM-MinGW static kit relative to its own directory. It packages selected open-source static libraries and complete notices rather than standalone Microsoft development libraries. Clean-Windows and release-package validation remain separate checks. Read the [manual backup, email cleanup, and distribution review](docs/PRIVACY.md) before a public binary release or history rewrite.
 
 - [Compiler architecture](docs/COMPILER_ARCHITECTURE.md)
+- [Documentation index](docs/README.md)
 - [User guide](docs/USER_GUIDE.md)
 - [Changelog](CHANGELOG.md)
 - [Development roadmap](docs/ROADMAP.md)

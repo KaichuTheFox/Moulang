@@ -1,5 +1,5 @@
 main() {
-    char byteValue = char(260)
+    char byteValue = char(260 & 255)
     short small = short(32000)
     long count = 2147483647
     float fraction = float(2.5)

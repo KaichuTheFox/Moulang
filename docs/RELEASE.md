@@ -4,10 +4,14 @@ The Windows workflow runs on main pushes, pull requests, manual dispatch, and v-
 
 1. The build job runs on windows-latest, verifies and extracts the exact LLVM 22.1.8 and LLVM-MinGW 20260616 archives, configures a new CMake/Ninja build, compiles the compiler and separate static runtime, and runs CTest.
 2. It runs extension unit tests and the downloaded, isolated VS Code host suites against source and VSIX payloads. It then installs into a fresh staging directory, packages the extension using the npm lockfile, includes the runtime/import libraries and required notices, writes per-file SHA-256 hashes, and produces a ZIP and ZIP checksum.
-3. A separate installation job downloads only that artifact, checks its ZIP checksum, extracts it, and runs the packaged verifier. That verifier checks every listed file, rejects unlisted files and path traversal, clears development-tool discovery variables, limits PATH to Windows System32, and runs Hello World.
+3. A separate installation job downloads only that artifact, checks its ZIP checksum, extracts it, and runs the packaged verifier. That verifier checks every listed file, rejects unlisted files and path traversal, clears development-tool discovery variables, limits PATH to Windows System32, and runs both the `.mcx` and `.m` Hello World examples.
 4. A tag push matching the compiler's CMake version publishes the same verified ZIP and checksum as a GitHub preview Release after both jobs pass. The release job alone has contents write permission and uses the versioned release-notes document. Existing tags/assets are never replaced. This workflow does not publish to the extension Marketplace.
 
 The hosted Windows runner already contains development tools. The installation job does not check out source, install LLVM, or configure a compiler, but its restricted discovery test is not a clean-OS proof. The verifier reports whether a Visual Studio installer is present. The archive's own compiler/link kit is used explicitly.
+
+The static-runtime CTest runs `llvm-readobj --coff-imports` on the compiler and on programs built from the hello, numeric, object, text, and list examples. It checks separate allowlists for the compiler and generated programs, including the specific Windows UCRT API sets observed in the supported build. Review new imports when the toolchain changes. The installation verifier checks every file hash, rejects duplicate paths, and requires the third-party notices in the extracted archive.
+
+Packaging scans the compiler, runtime, shipped examples, project text files, and unpacked VSIX entries for developer home paths and the current source root in UTF-8 and aligned or unaligned UTF-16LE. It scans the pinned vendor linker separately. The upstream static libraries and license files retain their original attribution and are covered by the pinned toolchain archive and the per-file manifest.
 
 ## Run the workflow bodies locally
 

@@ -1,0 +1,3 @@
+workload,language,version,flags,comparison,compile_ms,execute_ms,peak_working_set_bytes,exe_bytes,samples
+runtime_integer_casts,Moulang,Moulang 0.3.0,-O2,same-workload,120.653,162.100,4968448,214016,7
+bounded_integer_casts,Moulang,Moulang 0.3.0,-O2,same-workload,117.366,58.215,4960256,210944,7

@@ -1,0 +1,7 @@
+workload,language,version,flags,comparison,compile_ms,execute_ms,peak_working_set_bytes,exe_bytes,samples
+ascii_foreach,Moulang,Moulang 0.3.0,-O2,same-workload,119.192,68.127,4853760,211968,5
+ascii_foreach,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2040.828,106.823,5095424,1472000,5
+ascii_foreach,CPython,3.14.6,-B,same-workload,N/A,132.906,14163968,N/A,5
+hangul_foreach,Moulang,Moulang 0.3.0,-O2,same-workload,116.316,68.791,4849664,211968,5
+hangul_foreach,C++20,clang version 22.1.8,-std=c++20 -O2 -static,same-workload,2038.545,110.267,5095424,1472000,5
+hangul_foreach,CPython,3.14.6,-B,same-workload,N/A,159.525,14163968,N/A,5

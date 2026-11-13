@@ -82,3 +82,13 @@ test('TextMate carries block comments across lines and leaves string delimiters 
     assert.ok(scopesAt(close, 8).includes('support.function.moulang'));
     assert.ok(scopesAt(close, 15).includes('string.quoted.double.moulang'));
 });
+
+test('TextMate recognizes a standard module alias without reserving as globally', () => {
+    const source = 'import "std:math" as numeric';
+    const result = grammar.tokenizeLine(source, textmate.INITIAL);
+    assert.ok(scopesAt(result, source.indexOf('std:')).includes('string.quoted.double.moulang'));
+    assert.ok(scopesAt(result, source.indexOf('as numeric')).includes('keyword.control.moulang'));
+    assert.ok(scopesAt(result, source.indexOf('numeric')).includes('entity.name.namespace.moulang'));
+    const ordinary = grammar.tokenizeLine('var as = 1', textmate.INITIAL);
+    assert.ok(!scopesAt(ordinary, 4).includes('keyword.control.moulang'));
+});

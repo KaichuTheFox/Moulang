@@ -1,0 +1,5 @@
+workload,language,version,flags,comparison,compile_ms,execute_ms,peak_working_set_bytes,exe_bytes,samples
+ascii_index_short,Moulang,Moulang 0.3.0,-O2,same-workload,117.434,60.445,4866048,212992,5
+ascii_index_long,Moulang,Moulang 0.3.0,-O2,same-workload,123.343,58.788,4874240,212992,5
+hangul_index_short,Moulang,Moulang 0.3.0,-O2,same-workload,116.953,58.702,4866048,212992,5
+hangul_index_long,Moulang,Moulang 0.3.0,-O2,same-workload,124.024,292.839,4907008,212992,5

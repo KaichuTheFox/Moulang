@@ -21,13 +21,23 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'VSIX packaging failed.' }
     } finally { Pop-Location }
     $null = New-Item -ItemType Directory -Path (Join-Path $stage 'examples')
-    Copy-Item -LiteralPath examples/hello.m -Destination (Join-Path $stage 'examples/hello.m')
+    $examples = foreach ($example in 'examples/hello.mcx', 'examples/hello.m') {
+        $destination = Join-Path $stage $example
+        Copy-Item -LiteralPath $example -Destination $destination
+        $destination
+    }
     Copy-Item -LiteralPath LICENSE -Destination $stage
     Copy-Item -LiteralPath docs/INSTALL.md -Destination (Join-Path $stage 'INSTALL.md')
     Copy-Item -LiteralPath tools/Verify-Install.ps1 -Destination $stage
-    $null = & ./tools/Check-ArtifactPrivacy.ps1 -Artifact @(
+    $vsixContents = Join-Path $output ('inspect-vsix-' + [guid]::NewGuid().ToString('N'))
+    [IO.Compression.ZipFile]::ExtractToDirectory($vsix, $vsixContents)
+    $projectFiles = @(
         (Join-Path $stage 'bin/moulang.exe'), (Join-Path $stage 'bin/moulang_runtime.lib'),
-        (Join-Path $stage 'bin/toolchain/bin/ld.lld.exe')) -ForbiddenPrefix $repo
+        (Join-Path $stage 'LICENSE'),
+        (Join-Path $stage 'INSTALL.md'), (Join-Path $stage 'Verify-Install.ps1')
+    ) + $examples + @(Get-ChildItem -LiteralPath $vsixContents -Recurse -File | ForEach-Object FullName)
+    $null = & ./tools/Check-ArtifactPrivacy.ps1 -Artifact $projectFiles -ForbiddenPrefix $repo
+    $null = & ./tools/Check-ArtifactPrivacy.ps1 -Artifact (Join-Path $stage 'bin/toolchain/bin/ld.lld.exe') -ForbiddenPrefix $repo
     $files = @(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
         [pscustomobject]@{ path = $_.FullName.Substring($stage.Length + 1).Replace('\', '/'); sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
     })

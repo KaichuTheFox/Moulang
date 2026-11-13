@@ -6,7 +6,7 @@
 namespace moulang {
 enum class Type : std::uint32_t {
     inferred, byte, shortInt, integer, longInt, float32, float64, boolean, string, intSlice, intView,
-    borrowedIntView, none,
+    borrowedIntView, intList, intListView, none,
     nullValue, nullableByte, nullableShort, nullableInt, nullableLong, nullableFloat, nullableDouble,
     nullableBool, nullableString, firstStructure
 };
@@ -20,7 +20,7 @@ inline bool structureType(Type type) {
     return type >= Type::firstStructure && static_cast<std::uint32_t>(type) < stringListFlag;
 }
 
-inline Type stringList(unsigned depth) {
+inline constexpr Type stringList(unsigned depth) {
     return static_cast<Type>(stringListFlag | depth);
 }
 
@@ -29,7 +29,12 @@ inline unsigned stringListDepth(Type type) {
     return (bits >> 29) == 1 ? bits & (stringListFlag - 1) : 0;
 }
 
+inline bool listType(Type type) {
+    return type == Type::intList || stringListDepth(type);
+}
+
 inline Type listElement(Type list) {
+    if (list == Type::intList) return Type::integer;
     const auto depth = stringListDepth(list);
     return depth == 1 ? Type::string : stringList(depth - 1);
 }
@@ -47,7 +52,8 @@ inline unsigned fixedIntArrayLength(Type type) {
 }
 
 inline bool intCollection(Type type) {
-    return type == Type::intSlice || type == Type::intView || type == Type::borrowedIntView || fixedIntArrayType(type);
+    return type == Type::intSlice || type == Type::intView || type == Type::borrowedIntView ||
+        type == Type::intList || type == Type::intListView || fixedIntArrayType(type);
 }
 
 inline Type namedType(std::string_view name) {

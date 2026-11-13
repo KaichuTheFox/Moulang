@@ -6,6 +6,23 @@ const { registerLiveDiagnostics } = require('./diagnostics');
 const { resolveCompiler } = require('./compiler');
 const builtins = ['print', 'type', 'input', 'format', 'append', 'len', 'readText', 'writeText', 'RText', 'WText', 'AText'];
 const listMethods = ['append', 'insert', 'remove', 'sort', 'pop'];
+const standardExports = {
+    math: ['abs', 'min', 'max', 'sqrt', 'pow'],
+    text: ['len', 'find', 'substring', 'replace', 'split', 'join', 'lowerAscii', 'upperAscii'],
+    time: ['unixMillis', 'monotonicNanos', 'formatUtcDate'],
+    random: ['seed', 'nextInt', 'nextDouble']
+};
+
+function memberCompletions(document, before) {
+    const receiver = before.match(/(?<![.\w\p{Script=Hangul}])([A-Za-z_\p{Script=Hangul}][A-Za-z_0-9\p{Script=Hangul}]*)[ \t]*\.$/u);
+    if (receiver) {
+        const imports = /^[ \t]*import[ \t]+"std:(math|text|time|random)"(?:[ \t]+as[ \t]+([A-Za-z_\p{Script=Hangul}][A-Za-z_0-9\p{Script=Hangul}]*))?[ \t]*(?=\/\/|\r?$)/gmu;
+        for (const [, module, alias] of document.getText().matchAll(imports)) {
+            if ((alias ?? module) === receiver[1]) return standardExports[module];
+        }
+    }
+    return listMethods;
+}
 
 async function offerCompilerSettings(message) {
     const action = await vscode.window.showErrorMessage(message, 'Open Settings');
@@ -24,7 +41,7 @@ function activate(context) {
                 const prefix = range ? document.getText(new vscode.Range(range.start, position)) : '';
                 const before = document.lineAt(position.line).text.slice(0, (range?.start ?? position).character);
                 const member = before.endsWith('.');
-                const candidates = member ? listMethods : [...builtins, 'void', 'char', 'short', 'int', 'long', 'float', 'double',
+                const candidates = member ? memberCompletions(document, before) : [...builtins, 'void', 'char', 'short', 'int', 'long', 'float', 'double',
                     'bool', 'str', 'var', 'struct', 'class', 'new', 'this', 'public', 'private', 'def', 'return',
                     'if', 'elif', 'else', 'while', 'for', 'foreach', 'in', 'break', 'continue', 'import',
                     'true', 'false', 'null'];
@@ -43,7 +60,7 @@ function activate(context) {
         vscode.commands.registerCommand('moulang.run', async () => {
             const document = vscode.window.activeTextEditor?.document;
             if (document?.languageId !== 'moulang' || document.uri.scheme !== 'file') {
-                vscode.window.showErrorMessage('Open a saved Moulang (.m) file to run it.');
+                vscode.window.showErrorMessage('Open a saved Moulang source file to run it.');
                 return;
             }
             const folder = vscode.workspace.getWorkspaceFolder(document.uri);

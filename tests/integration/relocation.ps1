@@ -14,7 +14,7 @@ $incomplete = (New-Item -ItemType Directory -Path (Join-Path $workspace.FullName
 Copy-Item -LiteralPath $movedCompiler -Destination (Join-Path $incomplete 'moulang.exe')
 Copy-Item -LiteralPath (Join-Path $moved 'moulang_runtime.lib') -Destination $incomplete
 
-$sampleFiles = @('hello.m', 'numbers.m', 'objects.m')
+$sampleFiles = @('hello.mcx', 'hello.m', 'numbers.m', 'objects.m', 'standard-library.m')
 foreach ($file in $sampleFiles) {
     Copy-Item -LiteralPath (Join-Path $Examples $file) -Destination $workspace.FullName
 }

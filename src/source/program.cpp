@@ -1,5 +1,7 @@
 #include "moulang/parser.hpp"
+#include "moulang/standard.hpp"
 
+#include <algorithm>
 #include <iterator>
 #include <optional>
 
@@ -9,8 +11,9 @@ namespace fs = std::filesystem;
 
 class SourceGraph {
 public:
-    SourceGraph(std::vector<fs::path>& sources, std::optional<std::string_view> entryText)
-        : sources_(sources), entryText_(entryText) {}
+    SourceGraph(std::vector<fs::path>& sources, std::optional<std::string_view> entryText,
+        std::vector<std::string>* snapshots)
+        : sources_(sources), entryText_(entryText), snapshots_(snapshots) {}
 
     Program load(const fs::path& entry) {
         visit(entry, std::nullopt);
@@ -55,7 +58,9 @@ private:
             diagnostic.location.file = index;
             throw;
         }
-        auto unit = Parser(source, index, program_.typeReferences).parse();
+        if (snapshots_) snapshots_->push_back(std::move(source));
+        const auto& text = snapshots_ ? snapshots_->back() : source;
+        auto unit = Parser(text, index, program_.typeReferences).parse();
         if (importLocation) {
             for (const auto& function : unit.functions) {
                 if (function.name == "main") {
@@ -63,13 +68,20 @@ private:
                 }
             }
         }
-        for (const auto& import : unit.imports) {
+        for (auto& import : unit.imports) {
             if (import.path.find('\0') != std::string::npos) {
                 throw Diagnostic(import.location, "ML3028", "Import path must not contain NUL.");
             }
+            if (standardImport(import.path)) {
+                program_.imports.push_back(std::move(import));
+                continue;
+            }
             const fs::path relative(std::u8string(import.path.begin(), import.path.end()));
-            if (relative.has_root_path() || relative.extension() != L".m") {
-                throw Diagnostic(import.location, "ML3028", "Import requires a relative .m path.");
+            const auto suffix = relative.extension();
+            if (relative.has_root_path() || std::ranges::none_of(sourceExtensions, [&](std::string_view extension) {
+                    return suffix == fs::path(extension);
+                })) {
+                throw Diagnostic(import.location, "ML3028", "Import requires a relative path with a supported Moulang source extension.");
             }
             const auto imported = visit(canonical.parent_path() / relative, import.location);
             program_.dependencies[index].push_back(imported);
@@ -84,14 +96,16 @@ private:
 
     std::vector<fs::path>& sources_;
     std::optional<std::string_view> entryText_;
+    std::vector<std::string>* snapshots_;
     std::vector<File> files_;
     Program program_;
 };
 }
 
 Program loadProgram(const std::filesystem::path& entry, std::vector<std::filesystem::path>& sources,
-    std::optional<std::string_view> entryText) {
+    std::optional<std::string_view> entryText, std::vector<std::string>* snapshots) {
     sources.clear();
-    return SourceGraph(sources, entryText).load(entry);
+    if (snapshots) snapshots->clear();
+    return SourceGraph(sources, entryText, snapshots).load(entry);
 }
 }
